@@ -16,8 +16,9 @@ Markdown body. What a caller gets when they name a library and ask nothing.
 **Section** — One searchable unit of pkg.go.dev Markdown. pkg.go.dev emits `##`
 groups (Constants, Functions, Types) and then one fenced Go block per
 declaration followed by its prose; a declaration block starts a section. There
-are no per-symbol headings, so `src/index.ts` splits on the fences rather than
-on headings.
+are no per-symbol headings, so `src/sections.ts` splits on the fences rather than
+on headings. A section carries its `name`, `kind` and, for a method, its
+`receiver` as separate fields, so nothing has to re-parse a display heading.
 
 **Declaration** — A single `type`, `func`, `const` or `var` in a Go package, as
 it appears in one fenced block. What `get` returns when given a `symbol`.

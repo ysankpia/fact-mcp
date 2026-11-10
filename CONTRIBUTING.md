@@ -22,17 +22,20 @@ no hook at all.
 
 ## Before you open a pull request
 
-Run the same three checks CI runs:
+Run the same checks CI runs:
 
 ```sh
 bun run typecheck
+bun test
 bun run build
 bun run test-matrix --delay=6500
 ```
 
-`test-matrix` needs network access. The `--delay` flag spaces the calls out
-because bare-name resolution spends one GitHub search per new name, and the
-unauthenticated limit is 10 a minute. Set `GITHUB_TOKEN` to raise it to 30.
+`bun test` runs the offline unit suite against a committed pkg.go.dev fixture,
+so it needs no network and takes a second. `test-matrix` needs network access.
+The `--delay` flag spaces the calls out because bare-name resolution spends one
+GitHub search per new name, and the unauthenticated limit is 10 a minute. Set
+`GITHUB_TOKEN` to raise it to 30.
 
 If a test fails because a library changed upstream rather than because your
 change broke something, say so in the pull request and update the assertion.
@@ -76,7 +79,10 @@ already ecosystem-neutral, so nothing else needs to change.
 report includes the name you typed, what came back, and what you expected.
 
 **Improving extraction.** pkg.go.dev emits Markdown with `##` groups and one
-fenced Go block per declaration. Section splitting lives in `src/index.ts`.
+fenced Go block per declaration. Section splitting lives in `src/sections.ts`,
+ranking in `src/rank.ts`, and response assembly in `src/render.ts`. All three
+are pure and driven by `test/fixtures/mygo.md`, so a change there is testable
+without a network call: add the case to the fixture and to a `*.test.ts` file.
 
 ## What to avoid
 
