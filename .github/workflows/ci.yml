@@ -38,6 +38,10 @@ jobs:
   standards:
     runs-on: ubuntu-latest
     steps:
+      # The audit compares the changelog against release tags, so it needs the
+      # full history rather than the default single-commit clone.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Repository standards
         run: bash scripts/repo-audit.sh --strict
