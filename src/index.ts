@@ -96,7 +96,8 @@ function createServer(): McpServer {
       description:
         "Find current official documentation for a library and return the passages that answer a query. " +
         "Resolves the library name automatically; when the name is ambiguous it returns the candidates to choose from. " +
-        "Call with only `library` to get a version and package overview. Prefer this over guessing an API from memory.",
+        "Call with only `library` to get a version and package overview. " +
+        "Prefer this over guessing an API from memory.",
       inputSchema: z.object({
         query: z
           .string()
@@ -118,7 +119,7 @@ function createServer(): McpServer {
           .string()
           .optional()
           .describe(
-            'Narrow the search to one area or symbol, e.g. "ui" or "Column".',
+            'Keep only the sections that mention this area or symbol, e.g. "ui" or "Column": a filter, not a reweighting. Narrows a query; with no query it selects the sections about the topic on its own.',
           ),
         max_tokens: z
           .number()
@@ -144,7 +145,7 @@ function createServer(): McpServer {
       // Which name to resolve and whether to fetch the docs body are one
       // decision, and it is the tool's, not the entry point's: without a
       // library name the query is the name, and a query always needs the docs.
-      const plan = searchPlan(queryText, libraryName);
+      const plan = searchPlan(queryText, libraryName, (topic ?? "").trim());
       // No name to resolve, so answer before any lookup.
       if (!plan) return missingInput();
 

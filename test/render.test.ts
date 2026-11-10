@@ -373,6 +373,20 @@ describe("noMatch", () => {
       'header\nNo section matched "create a window". Document map:\n\n- Types\n\nNarrow with topic, or call get(library="mygo", symbol="Name").',
     );
   });
+
+  test("names the topic that removed every section, and offers a different one", () => {
+    const out = noMatch("header\n", "window", "- Types", "mygo", "TitleBarStyle");
+    expect(out).toBe(
+      'header\nNo section matched "window" with topic "TitleBarStyle". Document map:\n\n- Types\n\nTry another topic, or call get(library="mygo", symbol="Name").',
+    );
+  });
+
+  test("names a topic that found nothing on its own", () => {
+    const out = noMatch("header\n", "", "- Types", "mygo", "zzzqqq");
+    expect(out).toBe(
+      'header\nNo section matched "zzzqqq". Document map:\n\n- Types\n\nTry another topic, or call get(library="mygo", symbol="Name").',
+    );
+  });
 });
 
 describe("CHARS_PER_TOKEN", () => {

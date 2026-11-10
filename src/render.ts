@@ -188,14 +188,29 @@ export function documentMap(sections: Section[]): string {
     .join("\n");
 }
 
-/** The response for a query that matched no section. */
+/**
+ * The response for a query that matched no section.
+ *
+ * `topic`, when given, is part of what came back empty: naming only the query
+ * would send a caller to change the one argument that did match something.
+ * The advice follows the same split — with no topic there is something left to
+ * narrow with, with one the caller must change or drop it.
+ */
 export function noMatch(
   headerText: string,
   query: string,
   map: string,
   library: string,
+  topic?: string,
 ): string {
-  return `${headerText}No section matched "${query}". Document map:\n\n${map}\n\nNarrow with topic, or call get(library="${library}", symbol="Name").`;
+  const scope =
+    topic && query
+      ? `"${query}" with topic "${topic}"`
+      : `"${query || topic || ""}"`;
+  const next = topic
+    ? `Try another topic, or call get(library="${library}", symbol="Name").`
+    : `Narrow with topic, or call get(library="${library}", symbol="Name").`;
+  return `${headerText}No section matched ${scope}. Document map:\n\n${map}\n\n${next}`;
 }
 
 /** A section as it appears in a search response. */
