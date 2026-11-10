@@ -63,3 +63,5 @@ content.
 
 **Rate limit** — GitHub's unauthenticated search allows 10 requests a minute,
 counted per IP. A token raises it to 30. Only bare-name resolution spends one.
+
+<!-- branch protection smoke test -->
