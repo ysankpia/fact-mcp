@@ -30,7 +30,7 @@ library's own documentation API at the moment you ask.
 ## Install
 
 ```sh
-npm install -g fact-mcp
+npm install -g @sankpia/fact-mcp
 ```
 
 Requires Node.js 20 or newer. Nothing else — the server is a single file with no
