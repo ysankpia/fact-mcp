@@ -177,7 +177,12 @@ const cases: Case[] = [
     name: "search/overview-max-tokens-min",
     tool: "search",
     args: { library: "github.com/egoist/mygo", max_tokens: 500 },
-    expect: (t) => (t.length > 0 ? null : "empty"),
+    // An overview must still carry its own structure at the smallest budget:
+    // "non-empty" would pass on a header alone.
+    expect: (t) =>
+      has(t, "## Versions") && has(t, "github.com/egoist/mygo")
+        ? null
+        : "overview lost its sections at a small budget",
   },
 
   // ---- search: query ----
@@ -195,7 +200,10 @@ const cases: Case[] = [
     name: "search/query-api-symbol",
     tool: "search",
     args: { library: "github.com/egoist/mygo", query: "Bind" },
-    expect: (t) => (t.length > 200 ? null : "too little content"),
+    // The declaration itself must come back, not merely a long response:
+    // "Bind" also appears in BindAs and in unrelated bodies.
+    expect: (t) =>
+      has(t, "func Bind(") ? null : "Bind declaration not in results",
   },
   {
     name: "search/query-chinese",
@@ -559,7 +567,12 @@ const cases: Case[] = [
       query: "transfer files over network",
       library: "github.com/pkg/sftp",
     },
-    expect: (t) => (t.length > 100 ? null : "no answer"),
+    expect: (t) =>
+      // The question is about transferring files; TransferError is what this
+      // package documents for it. "Non-empty" passed even on a no-match map.
+      has(t, "TransferError") || has(t, "NewServer")
+        ? null
+        : "no file-transfer API in the answer",
   },
   {
     name: "real/websocket",
@@ -572,7 +585,12 @@ const cases: Case[] = [
     name: "real/http-framework",
     tool: "search",
     args: { query: "middleware", library: "github.com/gin-gonic/gin" },
-    expect: (t) => (has(t, "gin") ? null : "gin not found"),
+    // "gin" appears in the provenance header of every response, so matching it
+    // proved nothing. The middleware API is Engine.Use.
+    expect: (t) =>
+      has(t, "Use (method)") || has(t, "func (engine *Engine) Use(")
+        ? null
+        : "gin middleware API not in results",
   },
   {
     name: "real/json",
@@ -603,14 +621,24 @@ const cases: Case[] = [
     name: "real/owner-repo-shorthand",
     tool: "search",
     args: { library: "gin-gonic/gin", query: "middleware" },
-    expect: (t) => (has(t, "gin") ? null : "owner/repo shorthand not resolved"),
+    // The shorthand must resolve to the canonical module path, and the answer
+    // must actually contain sections: the provenance header carries the path
+    // even when nothing matched, so the path alone proves nothing.
+    expect: (t) =>
+      has(t, "library: github.com/gin-gonic/gin") && has(t, "### ")
+        ? null
+        : "owner/repo shorthand not resolved to a documented module",
   },
   {
     name: "real/cli-framework",
     tool: "search",
     args: { library: "github.com/spf13/cobra", query: "add a command" },
+    // "cobra" is in the header of any response for this library, so it proved
+    // nothing. Adding a command is AddCommand on *Command.
     expect: (t) =>
-      has(t, "cobra") || has(t, "Command") ? null : "cobra not resolved",
+      has(t, "AddCommand (method)") || has(t, "func (c *Command) AddCommand(")
+        ? null
+        : "cobra AddCommand not in results",
   },
 ];
 
