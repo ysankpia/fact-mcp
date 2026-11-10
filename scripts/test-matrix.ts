@@ -34,8 +34,15 @@ interface Case {
   name: string;
   tool: "search" | "get";
   args: Record<string, unknown>;
-  /** Assertions over the returned text. */
-  expect?: (text: string) => string | null;
+  /**
+   * A first call made in the same run, whose response the assertion compares
+   * against. Used where the property under test is about the difference
+   * between two calls — a topic narrowing a search, say — rather than about
+   * one response on its own.
+   */
+  baseline?: Record<string, unknown>;
+  /** Assertions over the returned text, and the baseline's when there is one. */
+  expect?: (text: string, baseline?: string) => string | null;
   /** Expected MCP-level error result. */
   expectError?: boolean;
   /**
@@ -47,6 +54,51 @@ interface Case {
 }
 
 const has = (text: string, needle: string) => text.includes(needle);
+
+/** The `### ` declaration headings of a response, in the order it sends them. */
+const headings = (text: string) =>
+  text
+    .split("\n")
+    .filter((line) => line.startsWith("### "))
+    .map((line) => line.slice(4));
+
+/**
+ * Every section a response carries, split the way an agent reads it: one
+ * `### ` chunk per section. A heading the response does not render as `###`
+ * (a `##` group) has no declaration of its own and is not a section here.
+ */
+const sectionChunks = (text: string) => text.split("\n### ").slice(1);
+
+/** Each returned section must mention the topic, not merely be near it. */
+const everySectionMentions = (text: string, topic: string) => {
+  const chunks = sectionChunks(text);
+  if (chunks.length === 0) return "no sections returned";
+  const off = chunks.filter(
+    (chunk) => !chunk.toLowerCase().includes(topic.toLowerCase()),
+  );
+  return off.length === 0
+    ? null
+    : `${off.length} returned section(s) do not mention ${topic}`;
+};
+
+/**
+ * What a topic must do: return a strict subset of the sections the same query
+ * returns without it, and drop every section that does not mention it. A
+ * reweighted ranking fails the first half; a filter that keeps unrelated
+ * sections fails the second.
+ */
+const narrowsTo = (text: string, baseline: string | undefined, topic: string) => {
+  if (baseline === undefined) return "no baseline response to compare against";
+  const base = headings(baseline);
+  const narrow = headings(text);
+  if (narrow.length === 0) return `topic ${topic} returned no sections`;
+  const outside = narrow.filter((heading) => !base.includes(heading));
+  if (outside.length > 0)
+    return `${outside.length} narrowed section(s) the untopiced query did not return: ${outside.join(", ")}`;
+  if (narrow.length >= new Set(base).size)
+    return `same ${narrow.length} sections with and without the topic`;
+  return everySectionMentions(text, topic);
+};
 
 /** The four characters per token the `max_tokens` contract is measured in. */
 const CHARS_PER_TOKEN = 4;
@@ -192,13 +244,29 @@ const cases: Case[] = [
   {
     name: "search/query-topic-narrow",
     tool: "search",
+    // The same query without the topic, measured in this same run, is the
+    // baseline. The case this replaced asserted the output contained
+    // "TitleBar", which the untopiced response already did, so it could never
+    // fail; before ticket #8 a topic only reweighted the ranking, and the
+    // untopiced answer still led with WindowOptions.
+    //
+    // "title bar" rather than "window" because both answers then fit inside
+    // the 20,000-token budget: "window" returns 147,631 characters and would
+    // compare a truncated prefix with a whole list. Here the narrowed sections
+    // (6) are a strict subset of the untopiced ones (78), and each mentions
+    // the topic.
     args: {
       library: "github.com/egoist/mygo",
-      query: "window",
+      query: "title bar",
       topic: "TitleBarStyle",
+      max_tokens: 20000,
     },
-    expect: (t) =>
-      has(t, "TitleBar") ? null : "topic did not narrow to TitleBar",
+    baseline: {
+      library: "github.com/egoist/mygo",
+      query: "title bar",
+      max_tokens: 20000,
+    },
+    expect: (t, base) => narrowsTo(t, base, "TitleBarStyle"),
   },
   {
     name: "search/query-no-library",
@@ -579,16 +647,31 @@ for (const c of selected) {
   let text = "";
 
   try {
+    let baselineText: string | undefined;
+    if (c.baseline) {
+      const baseResult = await client.callTool({
+        name: c.tool,
+        arguments: c.baseline,
+      });
+      baselineText = ((baseResult.content as { text?: string }[]) ?? [])
+        .map((b) => b.text ?? "")
+        .join("\n");
+      if (baseResult.isError) {
+        ok = false;
+        note = `baseline call failed: ${excerpt(baselineText, 120)}`;
+      }
+    }
+
     const result = await client.callTool({ name: c.tool, arguments: c.args });
     text = ((result.content as { text?: string }[]) ?? [])
       .map((b) => b.text ?? "")
       .join("\n");
     const isError = result.isError === true;
 
-    if (c.expectError && !isError) {
+    if (ok && c.expectError && !isError) {
       ok = false;
       note = "expected an error result";
-    } else if (!c.expectError && isError) {
+    } else if (ok && !c.expectError && isError) {
       ok = false;
       note = `unexpected error: ${excerpt(text, 120)}`;
     }
@@ -596,7 +679,7 @@ for (const c of selected) {
     // An expected error still has a message worth checking: the cause and the
     // next step are the part a caller reads.
     if (ok && c.expect) {
-      const problem = c.expect(text);
+      const problem = c.expect(text, baselineText);
       if (problem) {
         ok = false;
         note = problem;

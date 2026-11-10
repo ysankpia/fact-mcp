@@ -21,6 +21,13 @@ const body = (result: ReturnType<typeof searchDocs>) =>
 /** The number of ``` markers, the unit an agent parses a response by. */
 const fences = (text: string) => text.split("```").length - 1;
 
+/** The declaration headings of a response, in the order the response has them. */
+const headings = (text: string) =>
+  text
+    .split("\n")
+    .filter((line) => line.startsWith("### "))
+    .map((line) => line.slice(4));
+
 describe("search: no input", () => {
   test("neither query nor library is a tool error naming both", () => {
     const result = searchDocs({ max_tokens: 6000 }, bundle);
@@ -108,14 +115,89 @@ describe("search: query", () => {
     expect(out).toContain("### Hide (method)");
   });
 
-  test("topic narrows the ranking", () => {
+  test("a topic keeps only the sections that mention it", () => {
+    // "TitleBarStyle" appears in one section of the fixture. A topic is a
+    // filter, so the answer is that section alone — not the 23 sections the
+    // bare query ranks, reordered.
+    const wide = headings(
+      body(
+        searchDocs(
+          { query: "window", library: "mygo", max_tokens: 20000 },
+          bundle,
+        ),
+      ),
+    );
+    const narrow = headings(
+      body(
+        searchDocs(
+          {
+            query: "window",
+            topic: "TitleBarStyle",
+            library: "mygo",
+            max_tokens: 20000,
+          },
+          bundle,
+        ),
+      ),
+    );
+
+    expect(narrow).toEqual(["WindowOptions (type)"]);
+    // The section the unnarrowed answer leads with shares no "TitleBarStyle"
+    // mention with the topic, so it must be gone rather than demoted.
+    expect(wide).toContain("WindowStateStore (type)");
+    expect(narrow).not.toContain("WindowStateStore (type)");
+    // Strict subset: every narrowed section is one the unnarrowed answer had.
+    expect(narrow.length).toBeGreaterThan(0);
+    expect(narrow.every((heading) => wide.includes(heading))).toBe(true);
+    expect(narrow.length).toBeLessThan(wide.length);
+  });
+
+  test("a topic keeps the unnarrowed order of the sections it keeps", () => {
+    const narrow = headings(
+      body(
+        searchDocs(
+          {
+            query: "window",
+            topic: "Close",
+            library: "mygo",
+            max_tokens: 20000,
+          },
+          bundle,
+        ),
+      ),
+    );
+    const wide = headings(
+      body(
+        searchDocs(
+          { query: "window", library: "mygo", max_tokens: 20000 },
+          bundle,
+        ),
+      ),
+    );
+
+    // "Close" is mentioned by seven ranked sections: a filter keeps them in
+    // the order the query ranked them, and drops the rest.
+    expect(narrow.length).toBe(7);
+    const kept = wide.filter((heading) => narrow.includes(heading));
+    expect(narrow).toEqual(kept);
+    expect(narrow.length).toBeLessThan(wide.length);
+  });
+
+  test("a topic that no section mentions says so, naming the query and the topic", () => {
     const out = body(
       searchDocs(
-        { query: "window", topic: "StateKey", library: "mygo", max_tokens: 20000 },
+        {
+          query: "window",
+          topic: "zzzqqq",
+          library: "mygo",
+          max_tokens: 20000,
+        },
         bundle,
       ),
     );
-    expect(out).toContain("StateKey");
+    expect(out).toContain('No section matched "window" with topic "zzzqqq"');
+    expect(out).toContain("Document map:");
+    expect(out).not.toContain("### WindowOptions (type)");
   });
 
   test("a small budget still returns the header and a truncation note", () => {
@@ -126,6 +208,30 @@ describe("search: query", () => {
     expect(out).toContain("more matching section(s) not shown");
     // 500 tokens is 2000 characters, and the note says how to get the rest.
     expect(out.length).toBeLessThanOrEqual(2000);
+  });
+
+  test("the truncation footer says what a topic does", () => {
+    // The footer is one of the three places that describe `topic`; it must
+    // promise the same filter the schema and the README promise.
+    const out = body(
+      searchDocs({ query: "window", library: "mygo", max_tokens: 500 }, bundle),
+    );
+    expect(out).toContain('topic="window"');
+    expect(out).toContain("only the sections that mention it");
+  });
+
+  test("the footer of a narrowed response offers to widen it", () => {
+    // Telling a caller who already passed a topic to narrow with a topic is a
+    // dead end: what widens a narrowed search is dropping the topic.
+    const out = body(
+      searchDocs(
+        { query: "window", topic: "Close", library: "mygo", max_tokens: 500 },
+        bundle,
+      ),
+    );
+    expect(out).toContain("more matching section(s) not shown");
+    expect(out).toContain('topic="Close"');
+    expect(out).toContain("drop the topic");
   });
 
   test("the whole response stays under the ceiling at every budget", () => {
@@ -216,6 +322,35 @@ describe("search: query", () => {
         out.indexOf("### WindowStateStore (type)"),
       );
     }
+  });
+});
+
+describe("search: a topic without a query", () => {
+  test("selects the sections that mention it instead of an overview", () => {
+    // A caller naming a topic asked for documentation about it. Answering with
+    // a version list would silently ignore half the request.
+    const out = body(
+      searchDocs(
+        { library: "mygo", topic: "TitleBarStyle", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    expect(out).not.toContain("## Versions");
+    expect(out).toContain("### WindowOptions (type)");
+    expect(out).toContain("source: https://pkg.go.dev/github.com/egoist/mygo");
+  });
+
+  test("a topic with no query still needs a library to look up", () => {
+    const result = searchDocs({ topic: "TitleBarStyle", max_tokens: 20000 }, bundle);
+    expect(result.isError).toBe(true);
+    expect(body(result)).toContain("Provide a query, a library name, or both");
+  });
+
+  test("a topic fetches the docs body, not the overview", () => {
+    expect(searchPlan("", "mygo", "TitleBarStyle")).toEqual({
+      name: "mygo",
+      want: "docs",
+    });
   });
 });
 

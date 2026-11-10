@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `search(topic=...)` now filters the answer instead of reweighting it. The
+  topic used to be folded into the query's term list, so it reordered sections
+  without removing any: on `github.com/egoist/mygo`, `query="window"` with
+  `topic="TitleBarStyle"` still led with `WindowOptions` and returned every
+  section the bare query did, 80,298 characters against 79,972. The sections
+  returned with a topic are now a strict subset of those returned without it,
+  and a topic with no query selects the sections about it instead of being
+  silently ignored. The tool schema, the README and the truncation footer say
+  the same thing.
 - `get(symbol="Type.Method")` selects the declaration the caller named instead
   of the first one sharing the method name. A qualified symbol used to have its
   receiver thrown away, so on `github.com/egoist/mygo` — where
