@@ -17,13 +17,23 @@ returns Markdown directly.
 
 | Path                     | Role                                                |
 | ------------------------ | --------------------------------------------------- |
-| `src/index.ts`           | MCP tools, Markdown sectioning, ranking, truncation |
+| `src/index.ts`           | Entry point: tool registration and bundle fetching  |
+| `src/sections.ts`        | Splitting pkg.go.dev Markdown into sections         |
+| `src/rank.ts`            | Tokenising a query and scoring sections against it  |
+| `src/render.ts`          | Response assembly, truncation, headers and overviews |
+| `src/tools-search.ts`    | The `search` tool body, taking an already-built bundle |
+| `src/tools-get.ts`       | The `get` tool body, taking an already-built bundle |
 | `src/orchestrator.ts`    | Resolution and fetching, shared by client and proxy |
 | `src/go.ts`              | Bundle source selection (direct or proxy) and cache |
 | `src/proxy.ts`           | Proxy transport with retry                          |
 | `src/cache.ts`           | In-process LRU, five minute TTL                     |
 | `server/proxy.ts`        | The optional `fact-proxy` orchestrator              |
 | `scripts/test-matrix.ts` | 31 cases covering every tool argument               |
+| `test/`                  | Offline unit tests and the pkg.go.dev fixture       |
+
+The tool modules take a bundle as an argument and never fetch, so a fixture
+drives every branch with no network. The entry point does the fetching and
+passes the result in; keep that direction.
 
 ## Commands
 
@@ -31,6 +41,7 @@ returns Markdown directly.
 bun install
 bun run typecheck
 bun run build
+bun test                           # offline unit tests, no network
 bun run test-matrix --delay=6500   # paces only the cases that spend a search
 bun run inspect                    # MCP Inspector
 ```
@@ -44,8 +55,8 @@ git config core.hooksPath scripts/hooks
 ```
 
 It refuses a commit whose server code does not parse, and typechecks when a
-TypeScript source file is staged. CI runs the same checks plus the test matrix,
-so a green local hook and a green CI agree.
+TypeScript source file is staged. CI runs the same checks plus the unit tests
+and the test matrix, so a green local hook and a green CI agree.
 
 ## Remote hosts
 

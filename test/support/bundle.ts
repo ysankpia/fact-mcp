@@ -1,0 +1,68 @@
+/**
+ * A GoBundle built by hand, so the presentation suites need no network.
+ *
+ * The Markdown is the committed fixture; everything else is the smallest set
+ * of fields the response assembly reads.
+ */
+
+import { readFileSync } from "node:fs";
+
+import type { GoBundle, GoModule } from "../../src/orchestrator.ts";
+import type { ResolvedBundle } from "../../src/render.ts";
+
+export const FIXTURE_MARKDOWN = readFileSync(
+  new URL("../fixtures/mygo.md", import.meta.url),
+  "utf8",
+);
+
+/** The module every fixture bundle resolves to. */
+export const MYGO_MODULE: GoModule = {
+  path: "github.com/egoist/mygo",
+  version: "v0.8.3",
+  commitTime: "2025-03-04T10:00:00Z",
+  isLatest: true,
+  repoUrl: "https://github.com/egoist/mygo",
+};
+
+/** A resolved mygo bundle carrying the fixture Markdown. */
+export function mygoBundle(
+  overrides: Partial<ResolvedBundle> = {},
+): ResolvedBundle {
+  return {
+    module: MYGO_MODULE,
+    via: "module-path",
+    versions: [
+      { version: "v0.8.3", commitTime: "2025-03-04T10:00:00Z", isLatest: true },
+      {
+        version: "v0.8.0",
+        commitTime: "2025-01-02T00:00:00Z",
+        deprecated: true,
+        retracted: true,
+      },
+    ],
+    packages: [
+      {
+        path: "github.com/egoist/mygo",
+        name: "mygo",
+        synopsis: "Desktop application framework.",
+      },
+      // No synopsis: the overview and the "available packages" list skip it.
+      { path: "github.com/egoist/mygo/ui", name: "ui", synopsis: "" },
+    ],
+    primaryPackage: "github.com/egoist/mygo",
+    docs: {
+      path: "github.com/egoist/mygo",
+      version: "v0.8.3",
+      synopsis: "Desktop application framework.",
+      markdown: FIXTURE_MARKDOWN,
+    },
+    ...overrides,
+  };
+}
+
+/** A bundle for a package that has no godoc text at all. */
+export function bundleWithoutDocs(
+  overrides: Partial<ResolvedBundle> = {},
+): ResolvedBundle {
+  return mygoBundle({ docs: undefined, ...overrides });
+}
