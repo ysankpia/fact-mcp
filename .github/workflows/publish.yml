@@ -1,0 +1,69 @@
+name: Publish
+
+# Publishes to npm when a version tag is pushed.
+#
+# Authentication is OIDC (npm trusted publishing): no token is stored anywhere.
+# npm verifies that this workflow, in this repository, is the one allowed to
+# publish, and issues a short-lived credential for the duration of the job.
+# Because the publish comes from a public repository, npm also attaches a
+# provenance attestation that anyone can verify.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write # required for OIDC
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: latest
+
+      # npm 11.5.1+ is required for trusted publishing. The Node version that
+      # ships with the runner may be older, so pin both explicitly.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Check npm version
+        run: |
+          npm --version
+          node --version
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify the tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Smoke test the tools
+        run: bun run test-matrix --delay=6500
+        env:
+          FACT_BIN: ${{ github.workspace }}/dist/index.js
+
+      # No NODE_AUTH_TOKEN and no .npmrc: the npm CLI detects the OIDC
+      # environment and exchanges it for a short-lived publish credential.
+      - name: Publish
+        run: npm publish

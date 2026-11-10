@@ -2,6 +2,10 @@
 
 **Fact, not memory.** Up-to-date library documentation for AI agents, over MCP.
 
+[![npm](https://img.shields.io/npm/v/@sankpia/fact-mcp?color=cb3837)](https://www.npmjs.com/package/@sankpia/fact-mcp)
+[![license](https://img.shields.io/npm/l/@sankpia/fact-mcp)](LICENSE)
+[![CI](https://github.com/ysankpia/fact-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ysankpia/fact-mcp/actions/workflows/ci.yml)
+
 Your AI guesses. `fact` makes it check.
 
 ```text
