@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
+First release published by CI. No user-facing change; this version exists to
+validate the npm trusted publisher configuration, so later releases need no
+manual `npm publish`.
+
+### Changed
+
+- Publishing runs from GitHub Actions on a `v*` tag, authenticated with OIDC
+  instead of a stored npm token. Releases carry a provenance attestation.
+
 ## [0.1.0] - 2026-11-11
 
 First public release.
@@ -51,5 +62,6 @@ First public release.
 - Bare-name resolution spends one GitHub search. Without a token that is 10 a
   minute; a module path or `owner/repo` skips search entirely.
 
-[Unreleased]: https://github.com/ysankpia/fact-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ysankpia/fact-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ysankpia/fact-mcp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ysankpia/fact-mcp/releases/tag/v0.1.0
