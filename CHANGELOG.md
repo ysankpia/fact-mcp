@@ -39,6 +39,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   3,452 characters of godoc.
 - A documentation fetch that fails is reported as a fetch failure, not as a
   package with no godoc text. The overview fallback is unchanged.
+- A standard-library response cites a link that resolves. The `source:` line
+  used the module address with a version, so `encoding/json` was reported as
+  `https://pkg.go.dev/encoding/json@v1.27.4`, which answers HTTP 400; it is now
+  `https://pkg.go.dev/encoding/json`, which answers 200. A versioned module
+  keeps its `@version` link, which still answers 200.
+- The overview is valid Markdown again. Joining the lines dropped every empty
+  one, so `## Versions` and the other headings sat directly under the previous
+  line and a rendering client showed them as prose. Every heading is now
+  preceded by a blank line.
+- The version in `serverInfo` comes from `package.json` instead of a literal
+  that had gone stale: the server reported `0.1.0` while the published package
+  was `0.1.1`. Bumping the manifest now moves the reported version with it.
 
 ## [0.1.1] - 2026-11-11
 
