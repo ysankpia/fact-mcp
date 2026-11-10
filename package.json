@@ -30,6 +30,7 @@
     "prepack": "npm run build",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "test-matrix": "bun run scripts/test-matrix.ts",
     "inspect": "bunx @modelcontextprotocol/inspector bun run src/index.ts",
     "release": "./scripts/release.sh",

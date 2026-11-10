@@ -25,6 +25,13 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # The unit suite runs offline against a committed pkg.go.dev fixture, so
+      # it catches sectioning and ranking defects that the smoke matrix, which
+      # only asserts substrings of live responses, cannot see. It runs before
+      # the build because it needs no artifact and fails in milliseconds.
+      - name: Unit tests
+        run: bun test
+
       - name: Build
         run: bun run build
 

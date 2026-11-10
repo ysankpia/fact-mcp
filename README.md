@@ -85,24 +85,40 @@ Ask a question about a library. Returns the passages that answer it.
 | `query`      | What you need, in words or API names.       |
 | `library`    | Library name, module path, or `owner/repo`. |
 | `version`    | Pin a version. Default: latest.             |
-| `topic`      | Narrow to one area or symbol.               |
+| `topic`      | Keep only the sections that mention it.     |
 | `max_tokens` | Response budget. Default 6000.              |
 
 Leave `query` out and pass only `library` to get a version list and package
 overview instead of documentation.
+
+`topic` is a filter, not a reweighting: the sections that do not mention it are
+dropped, and the ones that do keep the order the query ranked them in. Pass
+`topic` without a `query` and it selects the sections about that topic on its
+own, which needs a `library` to look the documentation up in.
+
+A `query` with no `library` is treated as the name to resolve, and that
+library's documentation is then searched with the same query, exactly as if you
+had named it. If the name matches several modules you get the candidates
+instead, because resolution always happens before any documentation is read.
 
 ### `get`
 
 Fetch one page or one declaration at full fidelity. Use it once `search` has
 told you what to look at.
 
-| Argument     | Purpose                                         |
-| ------------ | ----------------------------------------------- |
-| `library`    | Library name or module path.                    |
-| `symbol`     | Declaration name, e.g. `WindowOptions`.         |
-| `page`       | Package path, e.g. `github.com/egoist/mygo/ui`. |
-| `version`    | Pin a version.                                  |
-| `max_tokens` | Response budget. Default 8000.                  |
+| Argument     | Purpose                                                    |
+| ------------ | ---------------------------------------------------------- |
+| `library`    | Library name or module path.                               |
+| `symbol`     | `WindowOptions`, or `Window.Title` for a method.           |
+| `page`       | Package path, e.g. `github.com/egoist/mygo/ui`.            |
+| `version`    | Pin a version.                                             |
+| `max_tokens` | Response budget. Default 8000.                             |
+
+A qualified `symbol` selects by receiver and name together, so `Page.Window` is
+the `Window` method of `Page` and nothing else. Type parameters may be left in
+(`Document[T].Window`) or out (`Document.Window`). A bare name that matches
+several declarations, or a receiver that has no such method, comes back as the
+candidates to choose from rather than as one arbitrary declaration.
 
 ## How names resolve
 
@@ -173,7 +189,7 @@ from stale data.
 ```sh
 bun install
 bun run typecheck
-bun run test-matrix          # 31 cases, every tool argument
+bun run test-matrix          # 43 cases, every tool argument
 bun run inspect              # MCP Inspector
 ```
 

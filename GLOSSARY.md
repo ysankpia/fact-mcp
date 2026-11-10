@@ -10,14 +10,24 @@ version list, its package list, the chosen primary package, and (unless an
 overview was asked for) that package's Markdown. Built by `buildBundle` in
 `src/orchestrator.ts`. It is the unit the cache stores and the proxy returns.
 
+**Resolved bundle** — A bundle that also carries the resolved `module`, which
+is what the tool bodies render from. The name marks the one guarantee a caller
+needs: a module was found, so the fields a response cites are present. Built by
+`resolveBundle` in `src/server.ts`.
+
+**Response** — The text a tool call returns: the provenance header, then either
+the sections that answer the call or the explanation of why none do. Its size
+is held to the caller's `max_tokens`, header and footer included.
+
 **Overview** — A bundle with `want: "overview"`: versions and packages, but no
 Markdown body. What a caller gets when they name a library and ask nothing.
 
 **Section** — One searchable unit of pkg.go.dev Markdown. pkg.go.dev emits `##`
 groups (Constants, Functions, Types) and then one fenced Go block per
 declaration followed by its prose; a declaration block starts a section. There
-are no per-symbol headings, so `src/index.ts` splits on the fences rather than
-on headings.
+are no per-symbol headings, so `src/sections.ts` splits on the fences rather than
+on headings. A section carries its `name`, `kind` and, for a method, its
+`receiver` as separate fields, so nothing has to re-parse a display heading.
 
 **Declaration** — A single `type`, `func`, `const` or `var` in a Go package, as
 it appears in one fenced block. What `get` returns when given a `symbol`.
