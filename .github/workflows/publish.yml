@@ -62,6 +62,11 @@ jobs:
         run: bun run test-matrix --delay=6500
         env:
           FACT_BIN: ${{ github.workspace }}/dist/index.js
+          # Bare-name resolution calls GitHub's search API. Unauthenticated
+          # calls allow 10 a minute and are counted per IP, which is shared on
+          # hosted runners. This token is issued per workflow run, scoped to
+          # this repository, and raises the limit to 30.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # No NODE_AUTH_TOKEN and no .npmrc: the npm CLI detects the OIDC
       # environment and exchanges it for a short-lived publish credential.

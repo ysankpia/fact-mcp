@@ -38,16 +38,26 @@ interface Case {
   expect?: (text: string) => string | null;
   /** Expected MCP-level error result. */
   expectError?: boolean;
+  /**
+   * Set when the case resolves a bare name, which spends one GitHub search.
+   * Only those cases wait between calls; a module path or owner/repo resolves
+   * without touching the search API, so it needs no pacing.
+   */
+  spendsSearch?: boolean;
 }
 
 const has = (text: string, needle: string) => text.includes(needle);
 
 const cases: Case[] = [
   // ---- search: library only (overview) ----
+  // Only a few cases use a bare name: each one spends a GitHub search, and the
+  // unauthenticated limit is 10 a minute. Everything else passes a module path
+  // or owner/repo, which resolves without any search at all.
   {
     name: "search/overview-bare-name",
     tool: "search",
     args: { library: "mygo" },
+    spendsSearch: true,
     expect: (t) =>
       has(t, "github.com/egoist/mygo") &&
       has(t, "## Versions") &&
@@ -67,19 +77,19 @@ const cases: Case[] = [
   {
     name: "search/overview-viva",
     tool: "search",
-    args: { library: "viva" },
+    args: { library: "github.com/vivaui/viva" },
     expect: (t) => (has(t, "github.com/vivaui/viva") ? null : "wrong module"),
   },
   {
     name: "search/overview-pinned-version",
     tool: "search",
-    args: { library: "mygo", version: "v0.8.0" },
+    args: { library: "github.com/egoist/mygo", version: "v0.8.0" },
     expect: (t) => (has(t, "v0.8.0") ? null : "pinned version not honoured"),
   },
   {
     name: "search/overview-max-tokens-min",
     tool: "search",
-    args: { library: "mygo", max_tokens: 500 },
+    args: { library: "github.com/egoist/mygo", max_tokens: 500 },
     expect: (t) => (t.length > 0 ? null : "empty"),
   },
 
@@ -87,26 +97,33 @@ const cases: Case[] = [
   {
     name: "search/query-native-window",
     tool: "search",
-    args: { library: "mygo", query: "create a native window" },
+    args: {
+      library: "github.com/egoist/mygo",
+      query: "create a native window",
+    },
     expect: (t) =>
       has(t, "WindowOptions") ? null : "WindowOptions not in results",
   },
   {
     name: "search/query-api-symbol",
     tool: "search",
-    args: { library: "mygo", query: "Bind" },
+    args: { library: "github.com/egoist/mygo", query: "Bind" },
     expect: (t) => (t.length > 200 ? null : "too little content"),
   },
   {
     name: "search/query-chinese",
     tool: "search",
-    args: { library: "mygo", query: "创建窗口" },
+    args: { library: "github.com/egoist/mygo", query: "创建窗口" },
     expect: (t) => (t.length > 0 ? null : "empty for Chinese query"),
   },
   {
     name: "search/query-topic-narrow",
     tool: "search",
-    args: { library: "mygo", query: "window", topic: "TitleBarStyle" },
+    args: {
+      library: "github.com/egoist/mygo",
+      query: "window",
+      topic: "TitleBarStyle",
+    },
     expect: (t) =>
       has(t, "TitleBar") ? null : "topic did not narrow to TitleBar",
   },
@@ -122,13 +139,21 @@ const cases: Case[] = [
   {
     name: "search/query-max-tokens-large",
     tool: "search",
-    args: { library: "mygo", query: "window", max_tokens: 20000 },
+    args: {
+      library: "github.com/egoist/mygo",
+      query: "window",
+      max_tokens: 20000,
+    },
     expect: (t) => (t.length > 2000 ? null : "large budget returned little"),
   },
   {
     name: "search/query-max-tokens-small",
     tool: "search",
-    args: { library: "mygo", query: "window", max_tokens: 500 },
+    args: {
+      library: "github.com/egoist/mygo",
+      query: "window",
+      max_tokens: 500,
+    },
     expect: (t) =>
       t.length > 0 && t.length < 4000 ? null : `unexpected size ${t.length}`,
   },
@@ -138,6 +163,7 @@ const cases: Case[] = [
     name: "search/ambiguous-name",
     tool: "search",
     args: { library: "zap" },
+    spendsSearch: true,
     // zap has two module paths (github.com/uber-go/zap and go.uber.org/zap).
     expect: (t) =>
       has(t, "zap") &&
@@ -149,6 +175,7 @@ const cases: Case[] = [
     name: "search/nonexistent",
     tool: "search",
     args: { library: "this-library-does-not-exist-xyz-9999" },
+    spendsSearch: true,
     // A miss is a normal answer with guidance, not a tool error.
     expect: (t) =>
       has(t, "No Go module") || has(t, "Choose one") || has(t, "rate-limited")
@@ -166,32 +193,38 @@ const cases: Case[] = [
   {
     name: "search/bad-version",
     tool: "search",
-    args: { library: "mygo", version: "v999.999.999" },
+    args: { library: "github.com/egoist/mygo", version: "v999.999.999" },
+    // A version that does not exist is the caller's mistake, so it comes back
+    // as an error — but the message must name the cause and the next step.
+    expectError: true,
     expect: (t) =>
-      has(t, "No Go module") || has(t, "Choose one") || has(t, "not found")
+      has(t, "no such module or version") && has(t, "Check the version")
         ? null
-        : "bad version accepted",
+        : "bad version not reported clearly",
   },
 
   // ---- get ----
   {
     name: "get/symbol-type",
     tool: "get",
-    args: { library: "mygo", symbol: "WindowOptions" },
+    args: { library: "github.com/egoist/mygo", symbol: "WindowOptions" },
     expect: (t) =>
       has(t, "type WindowOptions struct") ? null : "symbol body missing",
   },
   {
     name: "get/symbol-method-qualified",
     tool: "get",
-    args: { library: "mygo", symbol: "Application.OnWindowCreated" },
+    args: {
+      library: "github.com/egoist/mygo",
+      symbol: "Application.OnWindowCreated",
+    },
     expect: (t) =>
       has(t, "OnWindowCreated") ? null : "qualified method not found",
   },
   {
     name: "get/symbol-missing",
     tool: "get",
-    args: { library: "mygo", symbol: "NoSuchSymbolXyz" },
+    args: { library: "github.com/egoist/mygo", symbol: "NoSuchSymbolXyz" },
     expect: (t) =>
       has(t, "No declaration named") ? null : "missing symbol not reported",
   },
@@ -199,7 +232,7 @@ const cases: Case[] = [
     name: "get/page-subpackage",
     tool: "get",
     args: {
-      library: "mygo",
+      library: "github.com/egoist/mygo",
       page: "github.com/egoist/mygo/ui",
       max_tokens: 3000,
     },
@@ -212,7 +245,7 @@ const cases: Case[] = [
     name: "get/page-viva-app",
     tool: "get",
     args: {
-      library: "viva",
+      library: "github.com/vivaui/viva",
       page: "github.com/vivaui/viva/app",
       symbol: "Config",
     },
@@ -234,7 +267,7 @@ const cases: Case[] = [
   {
     name: "get/whole-page-truncation",
     tool: "get",
-    args: { library: "mygo", max_tokens: 500 },
+    args: { library: "github.com/egoist/mygo", max_tokens: 500 },
     expect: (t) =>
       has(t, "Truncated") || t.length < 3000 ? null : "no truncation note",
   },
@@ -242,6 +275,7 @@ const cases: Case[] = [
     name: "get/bad-library",
     tool: "get",
     args: { library: "definitely-not-a-real-module-xyz" },
+    spendsSearch: true,
     expect: (t) =>
       has(t, "No Go module") || has(t, "Choose one") || has(t, "rate-limited")
         ? null
@@ -252,7 +286,10 @@ const cases: Case[] = [
   {
     name: "real/file-transfer-library",
     tool: "search",
-    args: { query: "transfer files over network", library: "sftp" },
+    args: {
+      query: "transfer files over network",
+      library: "github.com/pkg/sftp",
+    },
     expect: (t) => (t.length > 100 ? null : "no answer"),
   },
   {
@@ -265,7 +302,7 @@ const cases: Case[] = [
   {
     name: "real/http-framework",
     tool: "search",
-    args: { query: "middleware", library: "gin" },
+    args: { query: "middleware", library: "github.com/gin-gonic/gin" },
     expect: (t) => (has(t, "gin") ? null : "gin not found"),
   },
   {
@@ -290,7 +327,7 @@ const cases: Case[] = [
   {
     name: "real/cli-framework",
     tool: "search",
-    args: { library: "cobra", query: "add a command" },
+    args: { library: "github.com/spf13/cobra", query: "add a command" },
     expect: (t) =>
       has(t, "cobra") || has(t, "Command") ? null : "cobra not resolved",
   },
@@ -341,7 +378,11 @@ for (const c of selected) {
     } else if (!c.expectError && isError) {
       ok = false;
       note = `unexpected error: ${excerpt(text, 120)}`;
-    } else if (c.expect) {
+    }
+
+    // An expected error still has a message worth checking: the cause and the
+    // next step are the part a caller reads.
+    if (ok && c.expect) {
       const problem = c.expect(text);
       if (problem) {
         ok = false;
@@ -363,7 +404,7 @@ for (const c of selected) {
   if (ok) pass++;
   else failures.push(c.name);
 
-  if (DELAY_MS > 0)
+  if (DELAY_MS > 0 && c.spendsSearch)
     await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
 }
 

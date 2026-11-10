@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: the job only needs the repository and the workflow-scoped token
+# that the smoke matrix passes to the GitHub search API.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -34,6 +39,11 @@ jobs:
           # Point the matrix at the freshly built bundle rather than a global
           # install, so the test exercises the artifact this commit produces.
           FACT_BIN: ${{ github.workspace }}/dist/index.js
+          # Bare-name resolution calls GitHub's search API. Unauthenticated
+          # calls allow 10 a minute and are counted per IP, which is shared on
+          # hosted runners. This token is issued per workflow run, scoped to
+          # this repository, and raises the limit to 30.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   standards:
     runs-on: ubuntu-latest

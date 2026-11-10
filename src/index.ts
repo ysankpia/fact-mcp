@@ -202,9 +202,17 @@ async function resolveBundle(
   want: "overview" | "docs" = "docs",
 ): Promise<
   | { ok: true; value: Resolved }
-  | { ok: false; candidates: string[]; via: string }
+  | { ok: false; candidates: string[]; via: string; error?: string }
 > {
-  const bundle = await goBundle({ name, version, page, want });
+  let bundle;
+  try {
+    bundle = await goBundle({ name, version, page, want });
+  } catch (error) {
+    // An upstream failure — a version that does not exist, a rate limit, a
+    // dropped connection — must come back as a readable answer, not an
+    // exception the agent cannot interpret.
+    return { ok: false, via: "error", candidates: [], error: String(error) };
+  }
 
   if (!bundle.module) {
     return {
@@ -261,7 +269,25 @@ function overview(resolved: Resolved): string {
 }
 
 /** Explain why a name did not resolve, with a next step. */
-function unresolved(name: string, via: string, candidates: string[]) {
+function unresolved(
+  name: string,
+  via: string,
+  candidates: string[],
+  error?: string,
+) {
+  // An upstream rejection: a version that does not exist is the common one.
+  if (via === "error") {
+    const notFound = error?.includes("404");
+    const detail = notFound
+      ? `"${name}" has no such module or version.`
+      : `The lookup failed: ${error}`;
+    return failure(
+      `${detail}\n\n` +
+        `Check the version, or leave it out to get the latest. ` +
+        `A full module path such as library="github.com/egoist/mygo" skips name lookup entirely.`,
+    );
+  }
+
   // Rate limiting is a transient failure of the tool itself.
   if (via === "github-rate-limited") {
     const known =
@@ -311,7 +337,7 @@ async function searchDocs(args: {
   const want =
     query && libraryName ? "docs" : libraryName ? "overview" : "overview";
   const r = await resolveBundle(name, args.version, undefined, want);
-  if (!r.ok) return unresolved(name, r.via, r.candidates);
+  if (!r.ok) return unresolved(name, r.via, r.candidates, r.error);
   const resolved = r.value;
 
   // A bare library name with no query is an overview request.
@@ -401,7 +427,7 @@ async function getDocs(args: {
 }): Promise<ReturnType<typeof text> | ReturnType<typeof failure>> {
   const maxChars = args.max_tokens * CHARS_PER_TOKEN;
   const r = await resolveBundle(args.library, args.version, args.page, "docs");
-  if (!r.ok) return unresolved(args.library, r.via, r.candidates);
+  if (!r.ok) return unresolved(args.library, r.via, r.candidates, r.error);
 
   const { module, bundle } = r.value;
   const pkg = bundle.primaryPackage ?? module.path;
