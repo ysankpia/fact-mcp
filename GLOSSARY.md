@@ -10,6 +10,15 @@ version list, its package list, the chosen primary package, and (unless an
 overview was asked for) that package's Markdown. Built by `buildBundle` in
 `src/orchestrator.ts`. It is the unit the cache stores and the proxy returns.
 
+**Resolved bundle** — A bundle that also carries the resolved `module`, which
+is what the tool bodies render from. The name marks the one guarantee a caller
+needs: a module was found, so the fields a response cites are present. Built by
+`resolveBundle` in `src/server.ts`.
+
+**Response** — The text a tool call returns: the provenance header, then either
+the sections that answer the call or the explanation of why none do. Its size
+is held to the caller's `max_tokens`, header and footer included.
+
 **Overview** — A bundle with `want: "overview"`: versions and packages, but no
 Markdown body. What a caller gets when they name a library and ask nothing.
 

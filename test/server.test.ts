@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 
@@ -42,10 +42,14 @@ describe("server identity", () => {
   test("no source file hand-writes the version the server reports", () => {
     // The stale literal shipped once: the manifest said 0.1.1 while the server
     // said 0.1.0. A manifest bump must move the reported version without a
-    // second edit, so this fails if a literal reappears.
+    // second edit, so this fails if a literal reappears anywhere under src/,
+    // not only in the two files the version is known to live in today.
     const literal = /version:\s*"\d+\.\d+\.\d+"/;
-    for (const file of ["../src/index.ts", "../src/server.ts"]) {
-      const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    const srcDir = new URL("../src/", import.meta.url);
+    const files = readdirSync(srcDir).filter((name) => name.endsWith(".ts"));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const source = readFileSync(new URL(file, srcDir), "utf8");
       expect(`${file} has a literal version: ${literal.test(source)}`).toBe(
         `${file} has a literal version: false`,
       );

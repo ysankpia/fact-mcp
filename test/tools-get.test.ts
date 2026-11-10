@@ -263,6 +263,35 @@ describe("get: one declaration", () => {
       expect(fences(text) % 2).toBe(0);
     }
   });
+
+  test("an ambiguous name respects the ceiling when the list is long", () => {
+    // The ambiguous response lists every declaration sharing the name and was
+    // the one path with no budget: 40 same-named methods produced 2778
+    // characters against a 2000 budget.
+    const parts: string[] = ["# package big", ""];
+    for (let i = 0; i < 40; i++) {
+      parts.push(
+        "```go",
+        `func (t *Type${i}) Close() error`,
+        "```",
+        `Close closes the resource of Type${i}.`,
+        "",
+      );
+    }
+    const big = {
+      ...bundle,
+      docs: {
+        path: "example.com/big",
+        version: "v1.0.0",
+        synopsis: "",
+        markdown: parts.join("\n"),
+      },
+    };
+    for (const max_tokens of [500, 2000]) {
+      const text = body(getDocs({ library: "big", symbol: "Close", max_tokens }, big));
+      expect(text.length).toBeLessThanOrEqual(max_tokens * 4);
+    }
+  });
 });
 
 describe("get: a package with no godoc text", () => {

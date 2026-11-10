@@ -156,16 +156,21 @@ const cases: Case[] = [
     name: "search/overview-full-path",
     tool: "search",
     args: { library: "github.com/egoist/mygo" },
+    // The header carries the path for any response, including a failure, so
+    // the path alone proved nothing. An overview must list versions.
     expect: (t) =>
-      has(t, "github.com/egoist/mygo") && has(t, "v0.8")
+      has(t, "## Versions") && has(t, "v0.8")
         ? null
-        : "wrong module",
+        : "overview did not list the module's versions",
   },
   {
     name: "search/overview-viva",
     tool: "search",
     args: { library: "github.com/vivaui/viva" },
-    expect: (t) => (has(t, "github.com/vivaui/viva") ? null : "wrong module"),
+    expect: (t) =>
+      has(t, "## Versions") && has(t, "## Packages")
+        ? null
+        : "overview did not list versions and packages",
   },
   {
     name: "search/overview-pinned-version",
@@ -578,8 +583,10 @@ const cases: Case[] = [
     name: "real/websocket",
     tool: "search",
     args: { library: "gorilla/websocket", query: "upgrade connection" },
+    // "upgrade" is echoed in the no-match text and appears in unrelated prose,
+    // so it passed on a response that found nothing. Upgrader is the API.
     expect: (t) =>
-      has(t, "Upgrader") || has(t, "upgrade") ? null : "no upgrade docs",
+      has(t, "Upgrader") ? null : "Upgrader declaration not in results",
   },
   {
     name: "real/http-framework",

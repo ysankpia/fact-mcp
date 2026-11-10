@@ -22,8 +22,6 @@ import { VERSION } from "./version.ts";
 
 /** A library reference resolved to one module and the bundle that describes it. */
 interface Resolved {
-  ecosystem: "go";
-  id: string;
   module: GoModule;
   bundle: ResolvedBundle;
 }
@@ -65,8 +63,6 @@ async function resolveBundle(
   return {
     ok: true,
     value: {
-      ecosystem: "go",
-      id: bundle.module.path,
       module: bundle.module,
       bundle: bundle as ResolvedBundle,
     },

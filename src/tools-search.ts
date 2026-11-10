@@ -10,8 +10,9 @@ import {
   type ResolvedBundle,
   documentMap,
   failure,
+  fitToBudget,
   header,
-  noMatch,
+  noMatchBody,
   overview,
   sectionsResponse,
   text,
@@ -22,7 +23,6 @@ import { sections } from "./sections.ts";
 export interface SearchArgs {
   query?: string;
   library?: string;
-  version?: string;
   topic?: string;
   max_tokens: number;
 }
@@ -77,7 +77,16 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
   // A bare library name, with neither a query nor a topic, is an overview
   // request. A topic on its own is not: it asks for the sections about that
   // topic, which only the docs body has.
-  if (!query && !topic) return text(overview(bundle));
+  if (!query && !topic) {
+    return text(
+      fitToBudget(
+        "",
+        overview(bundle),
+        maxChars,
+        `Pass a query to search the docs, or call get(library="${bundle.module.path}", symbol="Name").`,
+      ),
+    );
+  }
 
   // The query decides relevance; the topic then narrows the result. Ranking
   // with the query alone is what keeps a narrowed answer a subset of the
@@ -101,17 +110,22 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
         ]
       : ["This package has no godoc text (it may be a command or an empty root)."];
     return text(
-      [
-        `library: ${bundle.module.path}`,
-        `version: ${bundle.module.version}`,
-        `package: ${pkg}`,
+      fitToBudget(
         "",
-        ...reason,
-        "",
-        "Here is the module overview instead:",
-        "",
-        overview(bundle),
-      ].join("\n"),
+        [
+          `library: ${bundle.module.path}`,
+          `version: ${bundle.module.version}`,
+          `package: ${pkg}`,
+          "",
+          ...reason,
+          "",
+          "Here is the module overview instead:",
+          "",
+          overview(bundle),
+        ].join("\n"),
+        maxChars,
+        `Call get(library="${bundle.module.path}", symbol="Name") to read one declaration.`,
+      ),
     );
   }
 
@@ -127,12 +141,16 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
 
   if (narrowed.length === 0) {
     return text(
-      noMatch(
+      fitToBudget(
         headerText,
-        query,
-        documentMap(all),
-        bundle.module.path,
-        topic || undefined,
+        noMatchBody(
+          query,
+          documentMap(all),
+          bundle.module.path,
+          topic || undefined,
+        ),
+        maxChars,
+        `Pass a query to search the docs, or call get(library="${bundle.module.path}", symbol="Name").`,
       ),
     );
   }
@@ -141,10 +159,14 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
   // is offered unconditionally and stays out of a response that fits. A caller
   // who already passed a topic is told what widens the search, not to narrow a
   // search that is already narrowed.
+  //
+  // The advice must not name the query as the topic: every section already
+  // matched the query, so that filter would keep all of them and change
+  // nothing. A name from the results is what actually narrows.
   const nextCall = `call get(library="${bundle.module.path}", symbol="Name")`;
   const nextStep = topic
     ? `topic="${topic}" kept only the sections that mention it; drop the topic to widen, or ${nextCall}.`
-    : `Narrow with topic="${query}": it keeps only the sections that mention it, or ${nextCall}.`;
+    : `Narrow with topic set to one name from these results (a symbol or area), or ${nextCall}.`;
 
   return text(
     sectionsResponse(

@@ -212,12 +212,14 @@ describe("search: query", () => {
 
   test("the truncation footer says what a topic does", () => {
     // The footer is one of the three places that describe `topic`; it must
-    // promise the same filter the schema and the README promise.
+    // promise the same filter the schema and the README promise. It must not
+    // name the query as the topic: every section already matched the query, so
+    // that advice would filter nothing.
     const out = body(
       searchDocs({ query: "window", library: "mygo", max_tokens: 500 }, bundle),
     );
-    expect(out).toContain('topic="window"');
-    expect(out).toContain("only the sections that mention it");
+    expect(out).toContain("Narrow with topic");
+    expect(out).not.toContain('topic="window"');
   });
 
   test("the footer of a narrowed response offers to widen it", () => {

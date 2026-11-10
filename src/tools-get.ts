@@ -20,10 +20,13 @@ import {
 import { sections, type Section } from "./sections.ts";
 
 export interface GetArgs {
+  /**
+   * The library the caller named. The bundle is already resolved from it, so
+   * this is here to keep the call shape the tool received, not to be read.
+   */
   library: string;
+  /** The declaration to extract, e.g. "WindowOptions" or "Window.Title". */
   symbol?: string;
-  page?: string;
-  version?: string;
   max_tokens: number;
 }
 
@@ -73,11 +76,25 @@ export function getDocs(args: GetArgs, bundle: ResolvedBundle) {
   }
 
   if (found.matches.length > 1) {
-    return text(`${headerText}${ambiguous(want, found.matches, bundle)}`);
+    return text(
+      fitToBudget(
+        headerText,
+        ambiguous(want, found.matches, bundle),
+        maxChars,
+        "Raise max_tokens to list more, or name one of them with a receiver.",
+      ),
+    );
   }
 
   if (found.suggestions.length > 0) {
-    return text(`${headerText}${missed(want, found, bundle)}`);
+    return text(
+      fitToBudget(
+        headerText,
+        missed(want, found, bundle),
+        maxChars,
+        "Raise max_tokens to list more, or pass a full module path.",
+      ),
+    );
   }
 
   const names = all

@@ -4,9 +4,10 @@
  * Everything here is pure. It decides wording, ordering and where a response
  * is cut, and it never fetches: the tools hand it a bundle they already have.
  *
- * The assembly and the arithmetic are today's, moved rather than rewritten, so
- * the split changes no behaviour. Where that behaviour is wrong, the comment
- * says so and names the sibling ticket that changes it.
+ * The budget is enforced here, on the whole response, header and footer
+ * included, so a caller that asked for `max_tokens` gets at most that many
+ * tokens of text. A cut inside a fenced block is closed before returning, so
+ * the Markdown stays parseable.
  */
 
 import type { CallToolResult } from "@modelcontextprotocol/server";
@@ -210,6 +211,21 @@ export function noMatch(
   library: string,
   topic?: string,
 ): string {
+  return `${headerText}${noMatchBody(query, map, library, topic)}`;
+}
+
+/**
+ * The no-match response without its provenance header.
+ *
+ * Separated so a caller can budget the whole response: the header is measured
+ * with it, and the footer it would print is known before anything is cut.
+ */
+export function noMatchBody(
+  query: string,
+  map: string,
+  library: string,
+  topic?: string,
+): string {
   const scope =
     topic && query
       ? `"${query}" with topic "${topic}"`
@@ -217,7 +233,7 @@ export function noMatch(
   const next = topic
     ? `Try another topic, or call get(library="${library}", symbol="Name").`
     : `Narrow with topic, or call get(library="${library}", symbol="Name").`;
-  return `${headerText}No section matched ${scope}. Document map:\n\n${map}\n\n${next}`;
+  return `No section matched ${scope}. Document map:\n\n${map}\n\n${next}`;
 }
 
 /** A section as it appears in a search response. */
@@ -246,7 +262,7 @@ export function sectionChunks(
     const separator = chunks.length > 0 ? SECTION_SEPARATOR.length : 0;
     if (used + separator + rendered.length > maxChars) {
       const room = maxChars - used - separator;
-      if (room > 400) {
+      if (room > MIN_PARTIAL_CHUNK) {
         const { body } = truncate(rendered, room);
         chunks.push(body);
         used += separator + body.length;
@@ -261,6 +277,14 @@ export function sectionChunks(
 
 /** What separates one rendered section from the next. */
 const SECTION_SEPARATOR = "\n\n";
+
+/**
+ * Room left for a partial section below which cutting is not worth it.
+ *
+ * A slice shorter than this reads as a fragment with no context, so the packer
+ * stops instead and the footer says how to narrow.
+ */
+const MIN_PARTIAL_CHUNK = 400;
 
 /**
  * A search response: the header, the ranked sections that fit, and a footer
