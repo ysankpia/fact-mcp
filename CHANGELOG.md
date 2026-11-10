@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `get(symbol="Type.Method")` selects the declaration the caller named instead
+  of the first one sharing the method name. A qualified symbol used to have its
+  receiver thrown away, so on `github.com/egoist/mygo` — where
+  `Application.Title` does not exist — `get(symbol="Application.Title")`
+  returned `func (w *Window) Title() string`, `get(symbol="NoSuchType.Window")`
+  returned a `Window` method, and `get(symbol="Tray.Close")` returned
+  `Channel.Close`, none reported as a miss. An agent reading that wrote code
+  against a declaration it never asked for.
+- A bare `symbol` that matches several declarations returns the candidates
+  instead of one arbitrary match, and a miss names which part failed — the
+  receiver or the name — and points at the declaration that does carry it.
+  Generics work either way round: `Document[T].Window` and `Document.Window`
+  are the same request.
 - `search(query=...)` with no `library` now searches the resolved library's
   documentation. It previously fetched only an overview and then reported that
   the package had no godoc text, blaming upstream for a mistake the tool made:

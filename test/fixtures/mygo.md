@@ -128,6 +128,79 @@ BindAs is Bind with an explicit service name, for services whose type names coll
 ## Types
 
 ```go
+type Application struct {
+
+	// Dock controls the Dock icon on macOS.
+	Dock *Dock
+	// JumpList controls the jump list of the taskbar button on Windows.
+	JumpList *JumpList
+	// contains filtered or unexported fields
+}
+```
+
+Application controls the event loop and the lifecycle of the process. Use the App singleton.
+
+```go
+func (a *Application) Name() string
+```
+
+Name returns the application name. It defaults to the bundle name of a packaged app, else to the executable name.
+
+```go
+func (a *Application) Show()
+```
+
+Show shows the application after Hide (macOS).
+
+```go
+type Channel[T any] struct {
+	// contains filtered or unexported fields
+}
+```
+
+Channel streams values of type T from a bound method to the page that called it, like a response that arrives in parts: the lines a command prints, the tokens of a model's answer, the progress of a download.
+
+```go
+func (ch *Channel[T]) Close()
+```
+
+Close closes the channel, which ends the page's iteration once it took the values sent before. It is called when the method returns.
+
+```go
+func (ch *Channel[T]) Send(v T) error
+```
+
+Send sends v to the page. It fails once the channel is closed.
+
+```go
+type CookiesModule struct {
+	// contains filtered or unexported fields
+}
+```
+
+CookiesModule reads and writes the cookies of a session.
+
+```go
+func (m CookiesModule) Set(c Cookie) error
+```
+
+Set adds the cookie, or replaces the one of the same name, domain and path.
+
+```go
+type Dock struct {
+	// contains filtered or unexported fields
+}
+```
+
+Dock controls the application's Dock icon (macOS). Its methods do nothing on other platforms.
+
+```go
+func (d *Dock) Show()
+```
+
+Show restores the Dock icon (regular activation policy).
+
+```go
 type Document[T any] struct {
 	// contains filtered or unexported fields
 }
@@ -140,6 +213,58 @@ func (d *Document[T]) Window() *Window
 ```
 
 Window returns the window that shows the document.
+
+```go
+func (b *Document) Close()
+```
+
+Close closes the document's window, which asks to save the document first when it must.
+
+```go
+func (b *Document) Name() string
+```
+
+Name returns the document's file name, or the name of an untitled document, such as "Untitled 2".
+
+```go
+func (d *Document[T]) Set(content T)
+```
+
+Set replaces the document's content, which edits it, unless DocumentsOptions.Equal finds it equal to what its file has.
+
+```go
+type Event[T any] struct {
+	// contains filtered or unexported fields
+}
+```
+
+Event is a typed event the Go side sends to pages. Declare events at package level so `mygo generate` includes them in the TypeScript client:
+
+	var Progress = mygo.NewEvent[ProgressInfo]("progress")
+
+	Progress.Emit(win, ProgressInfo{Done: 1, Total: 3})
+
+and subscribe in the frontend with `events.progress.on(p => ...)`.
+
+```go
+func (e *Event[T]) Name() string
+```
+
+Name returns the event name.
+
+```go
+type NowPlayingModule struct {
+	// contains filtered or unexported fields
+}
+```
+
+NowPlayingModule shows what the app plays where the system shows media.
+
+```go
+func (n *NowPlayingModule) Set(info NowPlayingInfo)
+```
+
+Set shows info where the system shows media, replacing what it showed. It may be called before App.Run, and the system shows it once the app is ready.
 
 ```go
 type Page struct {
@@ -159,6 +284,34 @@ func (p *Page) Window() *Window
 ```
 
 Window returns the window that shows the page: for the page of a web view, the window the web view is in.
+
+```go
+type SecretsModule struct {
+	// contains filtered or unexported fields
+}
+```
+
+SecretsModule keeps small secrets, such as access tokens and API keys, in the system's credential store.
+
+```go
+func (s SecretsModule) Set(key string, value []byte) error
+```
+
+Set stores value under key, replacing what it had. The key must not be empty or longer than 256 bytes; the value may be at most MaxSecretSize bytes.
+
+```go
+type Tray struct {
+	// contains filtered or unexported fields
+}
+```
+
+Tray is an icon in the menu bar (macOS) or notification area.
+
+```go
+func (t *Tray) SetMenu(m *Menu)
+```
+
+SetMenu sets the menu shown when the icon is clicked; nil removes it so clicks reach OnClick.
 
 ```go
 type WebView struct {
@@ -205,6 +358,12 @@ func NewWindow(opts WindowOptions) *Window
 NewWindow creates a window. It must be called after the application is ready (see Application.WhenReady); when called from another goroutine it waits for that.
 
 ```go
+func (w *Window) Close()
+```
+
+Close closes the window as if the user clicked its close button, so OnClose listeners can cancel it.
+
+```go
 func (w *Window) Hide()
 ```
 
@@ -215,6 +374,18 @@ func (w *Window) ID() int
 ```
 
 ID returns the unique id of the window. The page sees it as window.mygo.windowId.
+
+```go
+func (w *Window) Show()
+```
+
+Show shows and focuses the window.
+
+```go
+func (w *Window) Title() string
+```
+
+Title returns the window title, without the mark of an edited document (see SetDocumentEdited).
 
 ```go
 type WindowButtons struct {

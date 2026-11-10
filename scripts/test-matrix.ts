@@ -291,7 +291,9 @@ const cases: Case[] = [
       symbol: "Application.OnWindowCreated",
     },
     expect: (t) =>
-      has(t, "OnWindowCreated") ? null : "qualified method not found",
+      has(t, "func (a *Application) OnWindowCreated")
+        ? null
+        : "qualified method not found",
   },
   {
     name: "get/symbol-missing",
@@ -299,6 +301,50 @@ const cases: Case[] = [
     args: { library: "github.com/egoist/mygo", symbol: "NoSuchSymbolXyz" },
     expect: (t) =>
       has(t, "No declaration named") ? null : "missing symbol not reported",
+  },
+  {
+    name: "get/symbol-qualified-wrong-receiver",
+    tool: "get",
+    // Application has no Title; only Window does. Substituting Window.Title
+    // here would hand an agent a declaration it never asked for.
+    args: { library: "github.com/egoist/mygo", symbol: "Application.Title" },
+    expect: (t) =>
+      !has(t, "```go") &&
+      has(t, 'No declaration named "Application.Title"') &&
+      has(t, "Window.Title")
+        ? null
+        : "receiver ignored: a declaration the caller did not name came back",
+  },
+  {
+    name: "get/symbol-qualified-unknown-receiver",
+    tool: "get",
+    args: { library: "github.com/egoist/mygo", symbol: "NoSuchType.Window" },
+    expect: (t) =>
+      !has(t, "```go") && has(t, 'No declaration named "NoSuchType.Window"')
+        ? null
+        : "unknown receiver returned a Window method",
+  },
+  {
+    name: "get/symbol-qualified-selects-receiver",
+    tool: "get",
+    // Window is declared on Document, Page and WebView. Only the named one
+    // may come back.
+    args: { library: "github.com/egoist/mygo", symbol: "Page.Window" },
+    expect: (t) =>
+      has(t, "func (p *Page) Window() *Window") &&
+      !has(t, "func (d *Document[T]) Window() *Window")
+        ? null
+        : "wrong receiver returned",
+  },
+  {
+    name: "get/symbol-ambiguous-bare-name",
+    tool: "get",
+    // Close is declared on several types; picking one silently is the defect.
+    args: { library: "github.com/egoist/mygo", symbol: "Close" },
+    expect: (t) =>
+      !has(t, "```go") && has(t, "ambiguous") && has(t, 'symbol="')
+        ? null
+        : "ambiguous bare name returned one arbitrary declaration",
   },
   {
     name: "get/page-subpackage",
