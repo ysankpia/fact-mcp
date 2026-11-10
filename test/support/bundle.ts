@@ -60,6 +60,45 @@ export function mygoBundle(
   };
 }
 
+/**
+ * A resolved standard-library package.
+ *
+ * Resolution reports the pseudo-module `std`, so the bundle carries
+ * `via: "stdlib"`; pkg.go.dev addresses such a package by its import path with
+ * no version at all.
+ */
+export function stdlibBundle(
+  overrides: Partial<ResolvedBundle> = {},
+): ResolvedBundle {
+  return {
+    module: {
+      path: "std",
+      version: "v1.27.4",
+      commitTime: "2025-12-01T00:00:00Z",
+      isLatest: true,
+    },
+    via: "stdlib",
+    versions: [
+      { version: "v1.27.4", commitTime: "2025-12-01T00:00:00Z", isLatest: true },
+    ],
+    packages: [
+      {
+        path: "encoding/json",
+        name: "json",
+        synopsis: "Package json implements encoding and decoding of JSON.",
+      },
+    ],
+    primaryPackage: "encoding/json",
+    docs: {
+      path: "encoding/json",
+      version: "v1.27.4",
+      synopsis: "Package json implements encoding and decoding of JSON.",
+      markdown: "## package json\n\n```go\npackage json\n```\n",
+    },
+    ...overrides,
+  };
+}
+
 /** A bundle for a package that has no godoc text at all. */
 export function bundleWithoutDocs(
   overrides: Partial<ResolvedBundle> = {},

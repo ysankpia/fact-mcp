@@ -168,11 +168,18 @@ export function header(bundle: ResolvedBundle): string {
   const module = bundle.module;
   const pkg = bundle.primaryPackage ?? module.path;
   const version = bundle.docs?.version ?? module.version;
+  // A standard-library package has no version in its pkg.go.dev address:
+  // encoding/json@v1.27.4 and std@v1.27.4/encoding/json both answer 400, while
+  // encoding/json answers 200. A module's address needs the version to pin it.
+  const source =
+    bundle.via === "stdlib"
+      ? `https://pkg.go.dev/${pkg}`
+      : `https://pkg.go.dev/${pkg}@${version}`;
   return [
     `library: ${module.path}`,
     `version: ${version}`,
     `package: ${pkg}`,
-    `source: https://pkg.go.dev/${pkg}@${version}`,
+    `source: ${source}`,
     "",
   ].join("\n");
 }
@@ -295,14 +302,21 @@ export function overview(bundle: ResolvedBundle): string {
     `version: ${module.version}`,
     `latest: ${module.isLatest ? "yes" : "no"}`,
     `released: ${module.commitTime}`,
-    module.repoUrl ? `repo: ${module.repoUrl}` : "",
+  ];
+  if (module.repoUrl) lines.push(`repo: ${module.repoUrl}`);
+
+  // The blank line in front of a heading is what makes Markdown render it;
+  // without one a client reads "## Versions" as prose. Only the optional repo
+  // line is omitted when absent, so no heading is left with two blank lines or
+  // none.
+  lines.push(
     "",
     "## Versions",
     ...bundle.versions.map(
       (v) =>
         `- ${v.version}${v.isLatest ? " (latest)" : ""}${v.deprecated ? " (deprecated)" : ""}${v.retracted ? " (retracted)" : ""} — ${v.commitTime.slice(0, 10)}`,
     ),
-  ];
+  );
 
   const publicPackages = bundle.packages.filter((p) => p.synopsis).slice(0, 12);
   if (publicPackages.length > 0) {
@@ -319,7 +333,7 @@ export function overview(bundle: ResolvedBundle): string {
     `- get(library="${module.path}", symbol="Type.Method") for one symbol`,
   );
 
-  return lines.filter((l) => l !== "").join("\n");
+  return lines.join("\n");
 }
 
 /**
