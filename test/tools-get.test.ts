@@ -1,9 +1,9 @@
 /**
  * The get tool, driven by a hand-built bundle.
  *
- * The receiver-stripping and first-match behaviour here is today's, defects
- * included: the tests marked CURRENT BEHAVIOUR pin it so a sibling ticket
- * changes it on purpose.
+ * The fixture carries several declarations that share a name on different
+ * receivers (Window on Document, Page and WebView; Close on Channel, Document
+ * and Window), so the lookup's receiver handling is exercised offline.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -71,16 +71,6 @@ describe("get: one declaration", () => {
     expect(out).toContain("Hide hides the window.");
   });
 
-  test("a qualified Type.Method keeps only the method name", () => {
-    const out = body(
-      getDocs(
-        { library: "mygo", symbol: "Window.Hide", max_tokens: 20000 },
-        bundle,
-      ),
-    );
-    expect(out).toContain("```go\nfunc (w *Window) Hide()\n```");
-  });
-
   test("matching is case-insensitive", () => {
     const out = body(
       getDocs({ library: "mygo", symbol: "windowoptions", max_tokens: 20000 }, bundle),
@@ -88,25 +78,146 @@ describe("get: one declaration", () => {
     expect(out).toContain("type WindowOptions struct");
   });
 
-  test("CURRENT BEHAVIOUR, NOT INTENDED: the receiver is stripped and the first match wins", () => {
-    // Three declarations are named Window, on Document, Page and WebView. The
-    // caller's receiver is thrown away, so every spelling returns the first
-    // one in document order: Document.Window. A sibling ticket fixes this.
-    const plain = body(
-      getDocs({ library: "mygo", symbol: "Window", max_tokens: 20000 }, bundle),
+  test("a qualified symbol that exists returns exactly that declaration", () => {
+    const out = body(
+      getDocs(
+        { library: "mygo", symbol: "Application.Name", max_tokens: 20000 },
+        bundle,
+      ),
     );
+    expect(out).toContain("func (a *Application) Name() string");
+    expect(out).toContain("Name returns the application name.");
+    // The Document method of the same name is not what was asked for.
+    expect(out).not.toContain("func (b *Document) Name() string");
+  });
+
+  test("a qualified symbol selects by receiver, not by first match", () => {
+    // Window is declared on Document, Page and WebView. Only the receiver the
+    // caller named may come back.
     const forPage = body(
       getDocs({ library: "mygo", symbol: "Page.Window", max_tokens: 20000 }, bundle),
     );
     const forWebView = body(
-      getDocs({ library: "mygo", symbol: "WebView.Window", max_tokens: 20000 }, bundle),
+      getDocs(
+        { library: "mygo", symbol: "WebView.Window", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    const forDocument = body(
+      getDocs(
+        { library: "mygo", symbol: "Document.Window", max_tokens: 20000 },
+        bundle,
+      ),
     );
 
+    expect(forPage).toContain("func (p *Page) Window() *Window");
+    expect(forPage).not.toContain("func (d *Document[T]) Window() *Window");
+    expect(forWebView).toContain("func (v *WebView) Window() *Window");
+    expect(forWebView).not.toContain("func (p *Page) Window() *Window");
+    expect(forDocument).toContain("func (d *Document[T]) Window() *Window");
+  });
+
+  test("a generic receiver may be written with or without its type parameters", () => {
+    const plain = body(
+      getDocs(
+        { library: "mygo", symbol: "Document.Window", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    const explicit = body(
+      getDocs(
+        { library: "mygo", symbol: "Document[T].Window", max_tokens: 20000 },
+        bundle,
+      ),
+    );
     expect(plain).toContain("func (d *Document[T]) Window() *Window");
-    expect(forPage).toBe(plain);
-    expect(forWebView).toBe(plain);
-    // And the receiver the caller asked for is not what came back.
-    expect(forPage).not.toContain("func (p *Page) Window() *Window");
+    expect(explicit).toBe(plain);
+  });
+
+  test("a qualified symbol whose receiver has no such name reports the miss", () => {
+    // Application has no Title; only Window does. Today the receiver is thrown
+    // away and Window.Title comes back, which is the defect this pins shut.
+    const out = body(
+      getDocs(
+        { library: "mygo", symbol: "Application.Title", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    // No declaration body at all: a miss may not smuggle one in.
+    expect(out).not.toContain("```go");
+    expect(out).toContain('No declaration named "Application.Title"');
+    expect(out).toContain('"Application" has no declaration named Title');
+    // It says what does exist, so the caller can pick.
+    expect(out).toContain("- Window.Title (method)");
+    expect(out).toContain('symbol="Window.Title"');
+  });
+
+  test("an unknown receiver reports a miss rather than a method of that name", () => {
+    const out = body(
+      getDocs(
+        { library: "mygo", symbol: "NoSuchType.Window", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    expect(out).not.toContain("```go");
+    expect(out).toContain('No declaration named "NoSuchType.Window"');
+    expect(out).toContain("Document.Window");
+    expect(out).toContain("Page.Window");
+    expect(out).toContain("WebView.Window");
+  });
+
+  test("a receiver that exists without that method reports a miss", () => {
+    for (const symbol of ["Tray.Close", "Application.Close"]) {
+      const out = body(
+        getDocs({ library: "mygo", symbol, max_tokens: 20000 }, bundle),
+      );
+      // A miss, not a declaration: no fenced body may come back.
+      expect(out).not.toContain("```go");
+      expect(out).toContain(`No declaration named "${symbol}"`);
+      expect(out).toContain("Channel.Close");
+      expect(out).toContain("Document.Close");
+      expect(out).toContain("Window.Close");
+    }
+  });
+
+  test("a bare name matching several declarations returns candidates", () => {
+    for (const [symbol, receivers] of [
+      ["Close", ["Channel", "Document", "Window"]],
+      ["Show", ["Application", "Dock", "Window"]],
+      ["Set", ["CookiesModule", "Document", "NowPlayingModule", "SecretsModule"]],
+      ["Name", ["Application", "Document", "Event"]],
+    ] as const) {
+      const out = body(
+        getDocs({ library: "mygo", symbol, max_tokens: 20000 }, bundle),
+      );
+      expect(out).not.toContain("```go");
+      expect(out).toContain(`"${symbol}" names ${receivers.length} declarations`);
+      for (const receiver of receivers) {
+        expect(out).toContain(`${receiver}.${symbol}`);
+      }
+      expect(out).toContain('symbol="');
+    }
+  });
+
+  test("a bare name matching one declaration is returned unchanged", () => {
+    // Title is declared once, on Window: no qualification needed.
+    const out = body(
+      getDocs({ library: "mygo", symbol: "Title", max_tokens: 20000 }, bundle),
+    );
+    expect(out).toContain("func (w *Window) Title() string");
+    expect(out).not.toContain("names 1 declarations");
+  });
+
+  test("a grouped const or var block is still matched by its heading", () => {
+    const constants = body(
+      getDocs({ library: "mygo", symbol: "const block", max_tokens: 20000 }, bundle),
+    );
+    expect(constants).toContain("ContextMenuBack");
+
+    const variables = body(
+      getDocs({ library: "mygo", symbol: "var block", max_tokens: 20000 }, bundle),
+    );
+    expect(variables).toContain("PageLetter");
   });
 
   test("a missing symbol lists the declarations in the package", () => {
