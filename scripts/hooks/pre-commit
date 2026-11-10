@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Repository pre-commit checks.
+#
+# Enable once per clone:
+#
+#   git config core.hooksPath scripts/hooks
+#
+# Kept fast on purpose: a hook slow enough to be annoying gets bypassed with
+# --no-verify, which is worse than no hook at all. Anything heavier belongs in
+# CI, where it already runs.
+#
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$ROOT" || exit 0
+
+fail=0
+
+# A file that does not parse never reaches a server or a registry. Catching it
+# here is the cheapest possible place: the previous failure mode was a syntax
+# error deployed to a host, where systemd restarted the unit in a loop.
+if [ -f server/proxy.ts ]; then
+  if ! bun build server/proxy.ts --target bun --outdir /tmp/fact-precommit >/dev/null 2>&1; then
+    echo "pre-commit: server/proxy.ts does not parse" >&2
+    bun build server/proxy.ts --target bun --outdir /tmp/fact-precommit 2>&1 | tail -10 >&2
+    fail=1
+  fi
+  rm -rf /tmp/fact-precommit
+fi
+
+# Typecheck only when a source file is staged: it is the slowest check here,
+# and an unrelated docs commit should not pay for it.
+if git diff --cached --name-only | grep -qE '^src/.*\.ts$|^scripts/.*\.ts$'; then
+  if ! bunx tsc --noEmit >/tmp/fact-typecheck.log 2>&1; then
+    echo "pre-commit: typecheck failed" >&2
+    tail -20 /tmp/fact-typecheck.log >&2
+    fail=1
+  fi
+  rm -f /tmp/fact-typecheck.log
+fi
+
+exit "$fail"

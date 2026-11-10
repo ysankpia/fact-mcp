@@ -9,10 +9,16 @@ is short.
 git clone https://github.com/ysankpia/fact-mcp
 cd fact-mcp
 bun install
+git config core.hooksPath scripts/hooks   # enable the commit hook
 ```
 
 Requires [Bun](https://bun.sh) 1.1+ for development. The published package runs
 on Node.js 20+, and the build must stay compatible with that.
+
+The commit hook refuses a commit whose server code does not parse, and runs the
+typecheck when a TypeScript source file is staged. It is fast on purpose: a hook
+slow enough to be annoying gets bypassed with `--no-verify`, which is worse than
+no hook at all.
 
 ## Before you open a pull request
 

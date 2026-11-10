@@ -35,6 +35,31 @@ bun run test-matrix --delay=6500   # paces only the cases that spend a search
 bun run inspect                    # MCP Inspector
 ```
 
+## Guardrails
+
+Enable the commit hook once per clone:
+
+```sh
+git config core.hooksPath scripts/hooks
+```
+
+It refuses a commit whose server code does not parse, and typechecks when a
+TypeScript source file is staged. CI runs the same checks plus the test matrix,
+so a green local hook and a green CI agree.
+
+## Remote hosts
+
+Deploying over SSH through a tunnel drops connections often enough that a
+single attempt is unreliable. Use `scripts/retry.sh` rather than writing a
+retry loop by hand:
+
+```sh
+./scripts/retry.sh ssh "$FACT_HOST" 'systemctl is-active fact-mcp'
+```
+
+It retries only transient failures (connection reset, TLS errors, timeouts,
+HTTP 429/502/503/504) and reports a real failure on the first attempt.
+
 ## Releasing
 
 ```sh
@@ -50,9 +75,7 @@ to publish when `CHANGELOG.md` has no section for the tag, or when the tag and
 
 ## Conventions
 
-- Comments explain why, not what. Match the surrounding density.
 - No prebuilt index and nothing written to disk: that is the product.
-- Failures say what went wrong and what to do next. Never answer from a guess.
 - A test that only asserts "no exception" is not a test.
 
 ## Agent skills
