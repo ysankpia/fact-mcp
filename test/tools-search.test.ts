@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { searchDocs } from "../src/tools-search.ts";
+import { searchDocs, searchPlan } from "../src/tools-search.ts";
 import {
   ZH_FIXTURE_MARKDOWN,
   bundleWithoutDocs,
@@ -189,6 +189,43 @@ describe("search: query", () => {
   });
 });
 
+describe("search: a query without a library", () => {
+  test("resolves the query as the name and fetches the docs body", () => {
+    // This is the whole bug: the query was resolved as the name but fetched as
+    // an overview, so the query was then answered from a bundle with no
+    // Markdown and the package was blamed for having no docs.
+    expect(searchPlan("cobra", "")).toEqual({ name: "cobra", want: "docs" });
+  });
+
+  test("a named library with a query still fetches the docs body", () => {
+    expect(searchPlan("create a native window", "mygo")).toEqual({
+      name: "mygo",
+      want: "docs",
+    });
+  });
+
+  test("a library with no query stays an overview", () => {
+    expect(searchPlan("", "mygo")).toEqual({ name: "mygo", want: "overview" });
+  });
+
+  test("no query and no library has no name to resolve", () => {
+    expect(searchPlan("", "")).toBeUndefined();
+    expect(searchPlan("  ", "  ")).toBeUndefined();
+  });
+
+  test("a query-only call is answered from docs, never as an overview", () => {
+    // The fix is two halves: ask for the docs body (above), then assemble from
+    // it. This pins the second half — with no `library` the body must not take
+    // the overview branch that a bare library name takes.
+    const out = body(
+      searchDocs({ query: "create a native window", max_tokens: 20000 }, bundle),
+    );
+    expect(out).not.toContain("no godoc text");
+    expect(out).not.toContain("## Versions");
+    expect(out).toContain("### WindowOptions (type)");
+  });
+});
+
 describe("search: a package with no godoc text", () => {
   test("says so and falls back to the overview", () => {
     const out = body(
@@ -214,6 +251,21 @@ describe("search: a package with no godoc text", () => {
       searchDocs({ query: "window", library: "mygo", max_tokens: 6000 }, empty),
     );
     expect(out).toContain("This package has no godoc text");
+  });
+
+  test("a failed fetch is reported as a failure, not as missing upstream docs", () => {
+    // `docsError` means the fetch failed. Claiming the package has no godoc
+    // text would blame upstream for a transient error.
+    const out = body(
+      searchDocs(
+        { query: "window", library: "mygo", max_tokens: 6000 },
+        bundleWithoutDocs({ docsError: "HTTP 500" }),
+      ),
+    );
+    expect(out).toContain("Fetch failed: HTTP 500");
+    expect(out).not.toContain("This package has no godoc text");
+    // The overview is still the fallback, so the caller has something to act on.
+    expect(out).toContain("## Versions");
   });
 });
 
