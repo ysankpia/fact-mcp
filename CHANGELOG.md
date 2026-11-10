@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- An offline unit-test suite, run by `bun test`. The repository had none, so
+  every check needed a live pkg.go.dev call and the only suite asserted
+  substrings of live responses. That is why the defects below shipped green.
+  Sectioning, ranking, truncation and both tool bodies are now driven from
+  committed pkg.go.dev fixtures, and CI and the release workflow run the suite
+  before building.
+
 ### Fixed
 
 - `search(topic=...)` now filters the answer instead of reweighting it. The
@@ -60,6 +69,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The version in `serverInfo` comes from `package.json` instead of a literal
   that had gone stale: the server reported `0.1.0` while the published package
   was `0.1.1`. Bumping the manifest now moves the reported version with it.
+- Six test-matrix cases asserted something that could not fail: a bare length,
+  or a substring the provenance header of every response already carries. A
+  no-match response satisfied them, so they proved nothing about the behaviour
+  they were named for. Each now requires the API it names, and each was checked
+  against a no-match response to confirm it rejects it.
 
 ## [0.1.1] - 2026-11-11
 
