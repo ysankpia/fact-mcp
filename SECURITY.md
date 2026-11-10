@@ -12,7 +12,7 @@ content and no database.
 ## Reporting a vulnerability
 
 Report privately through GitHub's
-[security advisory form](https://github.com/luhui/fact-mcp/security/advisories/new).
+[security advisory form](https://github.com/ysankpia/fact-mcp/security/advisories/new).
 Please do not open a public issue for a security problem.
 
 Include what you did, what happened, and what you expected. A proof of concept

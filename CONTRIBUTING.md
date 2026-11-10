@@ -6,7 +6,7 @@ is short.
 ## Development setup
 
 ```sh
-git clone https://github.com/luhui/fact-mcp
+git clone https://github.com/ysankpia/fact-mcp
 cd fact-mcp
 bun install
 ```

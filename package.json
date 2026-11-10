@@ -16,12 +16,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luhui/fact-mcp.git"
+    "url": "git+https://github.com/ysankpia/fact-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/luhui/fact-mcp/issues"
+    "url": "https://github.com/ysankpia/fact-mcp/issues"
   },
-  "homepage": "https://github.com/luhui/fact-mcp#readme",
+  "homepage": "https://github.com/ysankpia/fact-mcp#readme",
   "scripts": {
     "build": "bun build src/index.ts --target node --format esm --outdir dist --minify",
     "prepack": "npm run build",

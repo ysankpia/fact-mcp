@@ -51,5 +51,5 @@ First public release.
 - Bare-name resolution spends one GitHub search. Without a token that is 10 a
   minute; a module path or `owner/repo` skips search entirely.
 
-[Unreleased]: https://github.com/luhui/fact-mcp/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/luhui/fact-mcp/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ysankpia/fact-mcp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ysankpia/fact-mcp/releases/tag/v0.1.0
