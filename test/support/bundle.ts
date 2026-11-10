@@ -15,6 +15,16 @@ export const FIXTURE_MARKDOWN = readFileSync(
   "utf8",
 );
 
+/**
+ * A trimmed excerpt of a real pkg.go.dev response whose godoc prose is
+ * Chinese: `pkg.go.dev/v1/package/github.com/twgh/xcgui/window?doc=markdown`.
+ * Used wherever a query in a script without word breaks is measured.
+ */
+export const ZH_FIXTURE_MARKDOWN = readFileSync(
+  new URL("../fixtures/xcgui-window-zh.md", import.meta.url),
+  "utf8",
+);
+
 /** The module every fixture bundle resolves to. */
 export const MYGO_MODULE: GoModule = {
   path: "github.com/egoist/mygo",
