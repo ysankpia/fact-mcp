@@ -37,6 +37,29 @@ unauthenticated limit is 10 a minute. Set `GITHUB_TOKEN` to raise it to 30.
 If a test fails because a library changed upstream rather than because your
 change broke something, say so in the pull request and update the assertion.
 
+## Workflow
+
+`main` is protected. Push a branch and open a pull request; direct pushes,
+force pushes and branch deletion are rejected.
+
+```sh
+git switch -c fix/resolve-owner-repo
+git commit -am "fix: resolve owner/repo before searching"
+git push -u origin fix/resolve-owner-repo
+gh pr create --fill
+```
+
+A pull request merges once both required checks pass: `check` (typecheck,
+build, the test matrix) and `standards` (the repository audit). They run on
+every push to a pull request, so the status is visible before review starts.
+
+The maintainer may merge their own pull request once the checks are green;
+there is no separate approval requirement, because this project has one
+maintainer.
+
+Releases do not go through a pull request: a `v*` tag publishes to npm and
+opens a GitHub Release, as described in `AGENTS.md`.
+
 ## What makes a good change
 
 **Adding a language.** This is the most useful contribution. Create an adapter
