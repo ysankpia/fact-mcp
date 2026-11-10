@@ -1,6 +1,6 @@
 {
   "name": "@sankpia/fact-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fact, not memory. Up-to-date library documentation for AI agents over MCP.",
   "type": "module",
   "bin": {
