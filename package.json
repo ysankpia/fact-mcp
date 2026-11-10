@@ -52,5 +52,6 @@
     "grounding",
     "context7-alternative"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "bun@1.4.4"
 }

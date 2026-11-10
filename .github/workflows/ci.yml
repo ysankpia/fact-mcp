@@ -9,9 +9,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
 
@@ -31,11 +31,13 @@ jobs:
       - name: Smoke test the tools
         run: bun run test-matrix --delay=6500
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Point the matrix at the freshly built bundle rather than a global
+          # install, so the test exercises the artifact this commit produces.
+          FACT_BIN: ${{ github.workspace }}/dist/index.js
 
   standards:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Repository standards
         run: bash scripts/repo-audit.sh --strict
