@@ -19,6 +19,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   carried a single ``` marker and an agent parsing by fence swallowed
   everything after it. The cut now prefers a line boundary and closes a fence
   it lands inside.
+- `search(query=...)` with no `library` now searches the resolved library's
+  documentation. It previously fetched only an overview and then reported that
+  the package had no godoc text, blaming upstream for a mistake the tool made:
+  `search(query="cobra")` said the package had none while `get` returned its
+  3,452 characters of godoc.
+- A documentation fetch that fails is reported as a fetch failure, not as a
+  package with no godoc text. The overview fallback is unchanged.
 
 ## [0.1.1] - 2026-11-11
 
