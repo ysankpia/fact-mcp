@@ -32,7 +32,7 @@ import {
 import type { ResolvedBundle } from "./render.ts";
 import { unresolved } from "./render.ts";
 import { getDocs } from "./tools-get.ts";
-import { missingInput, searchDocs } from "./tools-search.ts";
+import { missingInput, searchDocs, searchPlan } from "./tools-search.ts";
 
 /** A library reference resolved to one module and the bundle that describes it. */
 interface Resolved {
@@ -85,14 +85,6 @@ async function resolveBundle(
       bundle: bundle as ResolvedBundle,
     },
   };
-}
-
-/** What `search` asks for: an overview unless a query needs the docs. */
-function searchWant(query: string, library: string): "overview" | "docs" {
-  // CURRENT BEHAVIOUR, NOT INTENDED: with only a query and no library, the
-  // query is treated as the name to resolve and an overview is fetched, so the
-  // docs the query asked about are never read. A sibling ticket fixes this.
-  return query && library ? "docs" : "overview";
 }
 
 function createServer(): McpServer {
@@ -148,18 +140,21 @@ function createServer(): McpServer {
 
       const queryText = (query ?? "").trim();
       const libraryName = (library ?? "").trim();
-      // No name to resolve, so answer before any lookup.
-      if (!queryText && !libraryName) return missingInput();
 
-      // Without a library name, the query itself is the name to resolve.
-      const name = libraryName || queryText;
+      // Which name to resolve and whether to fetch the docs body are one
+      // decision, and it is the tool's, not the entry point's: without a
+      // library name the query is the name, and a query always needs the docs.
+      const plan = searchPlan(queryText, libraryName);
+      // No name to resolve, so answer before any lookup.
+      if (!plan) return missingInput();
+
       const r = await resolveBundle(
-        name,
+        plan.name,
         version,
         undefined,
-        searchWant(queryText, libraryName),
+        plan.want,
       );
-      if (!r.ok) return unresolved(name, r.via, r.candidates, r.error);
+      if (!r.ok) return unresolved(plan.name, r.via, r.candidates, r.error);
 
       return searchDocs(args, r.value.bundle);
     },
