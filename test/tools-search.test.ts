@@ -18,6 +18,9 @@ const bundle = mygoBundle();
 const body = (result: ReturnType<typeof searchDocs>) =>
   (result.content[0] as { type: "text"; text: string }).text;
 
+/** The number of ``` markers, the unit an agent parses a response by. */
+const fences = (text: string) => text.split("```").length - 1;
+
 describe("search: no input", () => {
   test("neither query nor library is a tool error naming both", () => {
     const result = searchDocs({ max_tokens: 6000 }, bundle);
@@ -122,7 +125,34 @@ describe("search: query", () => {
     expect(out.startsWith("library: github.com/egoist/mygo")).toBe(true);
     expect(out).toContain("more matching section(s) not shown");
     // 500 tokens is 2000 characters, and the note says how to get the rest.
-    expect(out.length).toBeLessThan(4000);
+    expect(out.length).toBeLessThanOrEqual(2000);
+  });
+
+  test("the whole response stays under the ceiling at every budget", () => {
+    for (const max_tokens of [500, 2000, 6000]) {
+      const out = body(
+        searchDocs({ query: "window", library: "mygo", max_tokens }, bundle),
+      );
+      expect(out.length).toBeLessThanOrEqual(max_tokens * 4);
+    }
+  });
+
+  test("a truncated response carries an even number of fence markers", () => {
+    for (const max_tokens of [500, 2000, 6000]) {
+      const out = body(
+        searchDocs({ query: "window", library: "mygo", max_tokens }, bundle),
+      );
+      expect(fences(out) % 2).toBe(0);
+    }
+  });
+
+  test("a response that fits carries no truncation footer", () => {
+    // A budget large enough for every ranked section: nothing is left out, so
+    // nothing is reformatted or footed.
+    const out = body(
+      searchDocs({ query: "window", library: "mygo", max_tokens: 20000 }, bundle),
+    );
+    expect(out).not.toContain("more matching section(s) not shown");
   });
 
   test("a large budget returns more than a small one", () => {

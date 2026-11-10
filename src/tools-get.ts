@@ -13,10 +13,9 @@
 import {
   CHARS_PER_TOKEN,
   type ResolvedBundle,
+  fitToBudget,
   header,
   text,
-  truncate,
-  truncationNote,
 } from "./render.ts";
 import { sections, type Section } from "./sections.ts";
 
@@ -48,13 +47,13 @@ export function getDocs(args: GetArgs, bundle: ResolvedBundle) {
   }
 
   if (!args.symbol) {
-    const { body, cut } = truncate(docText, maxChars);
     return text(
-      `${headerText}${body}${truncationNote(
-        cut,
-        docText.length,
+      fitToBudget(
+        headerText,
+        docText,
+        maxChars,
         `Pass symbol="Name" or page="<package path>" to fetch a narrower slice.`,
-      )}`,
+      ),
     );
   }
 
@@ -63,14 +62,13 @@ export function getDocs(args: GetArgs, bundle: ResolvedBundle) {
   const found = findDeclarations(all, want);
 
   if (found.matches.length === 1) {
-    const section = found.matches[0];
-    const { body, cut } = truncate(section.body, maxChars);
     return text(
-      `${headerText}${body}${truncationNote(
-        cut,
-        section.body.length,
+      fitToBudget(
+        headerText,
+        found.matches[0].body,
+        maxChars,
         "Raise max_tokens to read the rest.",
-      )}`,
+      ),
     );
   }
 

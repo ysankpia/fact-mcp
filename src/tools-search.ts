@@ -11,10 +11,9 @@ import {
   documentMap,
   failure,
   header,
-  moreSectionsNote,
   noMatch,
   overview,
-  sectionChunks,
+  sectionsResponse,
   text,
 } from "./render.ts";
 import { rank, tokens } from "./rank.ts";
@@ -113,19 +112,16 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
     );
   }
 
-  const { chunks } = sectionChunks(
-    ranked.map((entry) => entry.section),
-    maxChars,
-    headerText.length,
-  );
-
-  const remaining = ranked.length - chunks.length;
-  const nextStep =
-    remaining > 0
-      ? `Narrow with topic="${args.topic ?? query}", or call get(library="${bundle.module.path}", symbol="Name").`
-      : "";
+  // The footer only prints when sections had to be left out, so the next step
+  // is offered unconditionally and stays out of a response that fits.
+  const nextStep = `Narrow with topic="${args.topic ?? query}", or call get(library="${bundle.module.path}", symbol="Name").`;
 
   return text(
-    `${headerText}${chunks.join("\n\n")}${moreSectionsNote(remaining, nextStep)}`,
+    sectionsResponse(
+      headerText,
+      ranked.map((entry) => entry.section),
+      maxChars,
+      nextStep,
+    ),
   );
 }
