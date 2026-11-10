@@ -113,8 +113,46 @@ const cases: Case[] = [
   {
     name: "search/query-chinese",
     tool: "search",
-    args: { library: "github.com/egoist/mygo", query: "创建窗口" },
-    expect: (t) => (t.length > 0 ? null : "empty for Chinese query"),
+    // mygo's godoc is English, so a Chinese query there has nothing to match.
+    // This package's godoc is Chinese: 登录 (login) is what the Login method
+    // documents. Before bigrams, "登录" tokenised to nothing and every type
+    // came back in document order instead.
+    args: {
+      library: "github.com/medivhzhan/weapp/v3",
+      query: "登录",
+      max_tokens: 4000,
+    },
+    expect: (t) =>
+      has(t, "No section matched")
+        ? "Chinese query matched nothing"
+        : has(t, "### Login")
+          ? null
+          : "Login not found for 登录",
+  },
+  {
+    name: "search/query-chinese-no-match",
+    tool: "search",
+    // A Chinese query for something the package does not document must reach
+    // the no-match response, not return every type. None of the bigrams in
+    // 量子比特 occur in this godoc.
+    args: {
+      library: "github.com/medivhzhan/weapp/v3",
+      query: "量子比特",
+      max_tokens: 4000,
+    },
+    expect: (t) =>
+      has(t, 'No section matched "量子比特"') ? null : "no-match not reported",
+  },
+  {
+    name: "search/query-no-match",
+    tool: "search",
+    // "zzzz" appears in no godoc. It used to return 153 sections led by
+    // AboutPanelOptions, because every type and func scored a flat bonus.
+    args: { library: "github.com/egoist/mygo", query: "zzzz", max_tokens: 4000 },
+    expect: (t) =>
+      has(t, 'No section matched "zzzz"') && has(t, "Document map:")
+        ? null
+        : "unmatched query still returned sections",
   },
   {
     name: "search/query-topic-narrow",

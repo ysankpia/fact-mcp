@@ -8,7 +8,11 @@
 import { describe, expect, test } from "bun:test";
 
 import { searchDocs } from "../src/tools-search.ts";
-import { bundleWithoutDocs, mygoBundle } from "./support/bundle.ts";
+import {
+  ZH_FIXTURE_MARKDOWN,
+  bundleWithoutDocs,
+  mygoBundle,
+} from "./support/bundle.ts";
 
 const bundle = mygoBundle();
 const body = (result: ReturnType<typeof searchDocs>) =>
@@ -132,18 +136,56 @@ describe("search: query", () => {
     expect(large.length).toBeGreaterThan(2000);
   });
 
-  test("CURRENT BEHAVIOUR, NOT INTENDED: an unmatched query still returns type and func sections", () => {
-    // The flat type/func bonus keeps those sections above the `score > 0`
-    // filter, so a query with no match at all never reaches the document-map
-    // branch. A sibling ticket fixes the bonus; this pins today's output.
+  test("a query that matches nothing returns the no-match response, not unrelated types", () => {
+    // "kubernetes" appears nowhere in the fixture. A type used to score a flat
+    // bonus for being a type, so the response led with WindowOptions and the
+    // no-match branch was unreachable.
     const out = body(
       searchDocs(
         { query: "kubernetes", library: "mygo", max_tokens: 20000 },
         bundle,
       ),
     );
-    expect(out).not.toContain("No section matched");
-    expect(out).toContain("### WindowOptions (type)");
+    expect(out).toContain('No section matched "kubernetes"');
+    expect(out).toContain("Document map:");
+    expect(out).not.toContain("### WindowOptions (type)");
+  });
+
+  test("a query of nonsense characters also reaches the no-match response", () => {
+    const out = body(
+      searchDocs(
+        { query: "zzzqqqxyw", library: "mygo", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    expect(out).toContain('No section matched "zzzqqqxyw"');
+    expect(out).toContain("- Types");
+  });
+
+  test("a query in a script without word breaks returns the sections about windows", () => {
+    // mygo's own godoc is English, so a Chinese query has nothing to match
+    // there: it must say so rather than answer with an unrelated type.
+    const out = body(
+      searchDocs(
+        { query: "创建窗口", library: "mygo", max_tokens: 20000 },
+        bundle,
+      ),
+    );
+    expect(out).toContain('No section matched "创建窗口"');
+    expect(out).toContain("Document map:");
+  });
+
+  test("a matching query still leads with the section that answers it", () => {
+    // The no-match fix must not change what a matching query returns.
+    for (const query of ["window", "create a native window"]) {
+      const out = body(
+        searchDocs({ query, library: "mygo", max_tokens: 20000 }, bundle),
+      );
+      expect(out).toContain("### WindowOptions (type)");
+      expect(out.indexOf("### WindowOptions (type)")).toBeLessThan(
+        out.indexOf("### WindowStateStore (type)"),
+      );
+    }
   });
 });
 
@@ -177,9 +219,8 @@ describe("search: a package with no godoc text", () => {
 
 describe("search: the document map", () => {
   test("the no-match branch lists the group headings and a next step", () => {
-    // Reachable when ranking returns nothing, which today only happens for a
-    // query whose terms are all single characters: no flat bonus applies to
-    // headings, so a heading-only document yields an empty ranking.
+    // A query whose terms are all single characters tokenises to nothing, so
+    // nothing matches and the caller gets the map to pick a better query from.
     const headingsOnly = mygoBundle({
       docs: {
         path: "github.com/egoist/mygo",
@@ -198,5 +239,42 @@ describe("search: the document map", () => {
     expect(out).toContain("- package mygo");
     expect(out).toContain("- Types");
     expect(out).toContain('get(library="github.com/egoist/mygo", symbol="Name")');
+  });
+});
+
+describe("search: a package documented in a script without word breaks", () => {
+  // A real excerpt of github.com/twgh/xcgui/window, whose godoc is Chinese.
+  const zhBundle = mygoBundle({
+    docs: {
+      path: "github.com/twgh/xcgui/window",
+      version: "v1.4.9",
+      synopsis: "",
+      markdown: ZH_FIXTURE_MARKDOWN,
+    },
+  });
+
+  test("a Chinese query returns the window functions, not an arbitrary type", () => {
+    const out = body(
+      searchDocs(
+        { query: "创建窗口", library: "mygo", max_tokens: 20000 },
+        zhBundle,
+      ),
+    );
+    expect(out).not.toContain("No section matched");
+    // New and NewEx are the two declarations that say 窗口\_创建.
+    expect(out).toContain("### New (func)");
+    expect(out).toContain("### NewEx (func)");
+    // A method whose prose never mentions either term is not an answer.
+    expect(out).not.toContain("### EnableAutoWrap (method)");
+  });
+
+  test("the English identifiers in the same package still match", () => {
+    const out = body(
+      searchDocs(
+        { query: "EnableAutoWrap", library: "mygo", max_tokens: 20000 },
+        zhBundle,
+      ),
+    );
+    expect(out).toContain("### EnableAutoWrap (method)");
   });
 });
