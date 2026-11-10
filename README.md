@@ -173,7 +173,7 @@ from stale data.
 ```sh
 bun install
 bun run typecheck
-bun run test-matrix          # 31 cases, every tool argument
+bun run test-matrix          # 34 cases, every tool argument
 bun run inspect              # MCP Inspector
 ```
 

@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `max_tokens` is now a real ceiling. The budget used to cover the body only,
+  so the provenance header and the truncation footer pushed every truncated
+  response over: `search max_tokens=500` returned 2135 characters against a
+  2000 budget, `get max_tokens=500` returned 2250. Both the header and the
+  footer are now measured before the body is cut, and a response that fits is
+  returned byte for byte unchanged.
+- A truncated response is valid Markdown again. The cut used to land at an
+  arbitrary character offset, so a response that ended inside a fenced Go block
+  carried a single ``` marker and an agent parsing by fence swallowed
+  everything after it. The cut now prefers a line boundary and closes a fence
+  it lands inside.
+
 ## [0.1.1] - 2026-11-11
 
 First release published by CI. No user-facing change; this version exists to
@@ -50,7 +64,7 @@ First public release.
 - `scripts/release.sh`: typecheck, bump, build, pack, install, repoint config.
 - `scripts/deploy-server.sh`: syntax check, upload, checksum, restart, rollback.
 - `scripts/setup-server.sh`: provision a fresh host from scratch.
-- `scripts/test-matrix.ts`: 31 cases covering every tool argument and a spread
+- `scripts/test-matrix.ts`: 34 cases covering every tool argument and a spread
   of real-world questions.
 
 ### Known limits
