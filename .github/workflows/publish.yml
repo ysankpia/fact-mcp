@@ -1,6 +1,6 @@
 name: Publish
 
-# Publishes to npm when a version tag is pushed.
+# Publishes to npm and opens a GitHub Release when a version tag is pushed.
 #
 # Authentication is OIDC (npm trusted publishing): no token is stored anywhere.
 # npm verifies that this workflow, in this repository, is the one allowed to
@@ -15,13 +15,15 @@ on:
 
 permissions:
   id-token: write # required for OIDC
-  contents: read
+  contents: write # required to create the release
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the changelog section is read from history
 
       - uses: oven-sh/setup-bun@v2.2.0
         with:
@@ -52,6 +54,16 @@ jobs:
             exit 1
           fi
 
+      # Fail before publishing rather than shipping a version with no notes.
+      - name: Verify the changelog has a section for this version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${VERSION}]' section"
+            exit 1
+          fi
+          echo "found CHANGELOG section for $VERSION"
+
       - name: Typecheck
         run: bun run typecheck
 
@@ -70,5 +82,28 @@ jobs:
 
       # No NODE_AUTH_TOKEN and no .npmrc: the npm CLI detects the OIDC
       # environment and exchanges it for a short-lived publish credential.
-      - name: Publish
+      - name: Publish to npm
         run: npm publish
+
+      # A tag alone does not create a release page, so this closes the gap
+      # between "the package exists" and "the repository shows what changed".
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > /tmp/notes.md
+
+          if [ ! -s /tmp/notes.md ]; then
+            echo "::error::no release notes extracted for $VERSION"
+            exit 1
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+            --verify-tag
