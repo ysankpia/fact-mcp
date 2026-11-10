@@ -15,35 +15,52 @@ const bundle = mygoBundle();
 const body = (result: ReturnType<typeof getDocs>) =>
   (result.content[0] as { type: "text"; text: string }).text;
 
+/** The number of ``` markers, the unit an agent parses a response by. */
+const fences = (text: string) => text.split("```").length - 1;
+
+/** The whole response for a call, as a caller receives it. */
+const out = (args: Parameters<typeof getDocs>[0]) => body(getDocs(args, bundle));
+
 describe("get: whole page", () => {
   test("no symbol returns the document under the provenance header", () => {
-    const out = body(getDocs({ library: "mygo", max_tokens: 20000 }, bundle));
-    expect(out.startsWith("library: github.com/egoist/mygo\n")).toBe(true);
-    expect(out).toContain("source: https://pkg.go.dev/github.com/egoist/mygo@v0.8.3");
-    expect(out).toContain("# package mygo");
+    const text = out({ library: "mygo", max_tokens: 20000 });
+    expect(text.startsWith("library: github.com/egoist/mygo\n")).toBe(true);
+    expect(text).toContain("source: https://pkg.go.dev/github.com/egoist/mygo@v0.8.3");
+    expect(text).toContain("# package mygo");
     // The whole fixture fits, so nothing is truncated.
-    expect(out).not.toContain("Truncated");
+    expect(text).not.toContain("Truncated");
   });
 
   test("a small budget cuts the page and says how to read the rest", () => {
-    const out = body(getDocs({ library: "mygo", max_tokens: 500 }, bundle));
-    expect(out).toContain("Truncated");
-    expect(out).toContain(
+    const text = out({ library: "mygo", max_tokens: 500 });
+    expect(text).toContain("Truncated");
+    expect(text).toContain(
       'Pass symbol="Name" or page="<package path>" to fetch a narrower slice.',
     );
   });
 
-  test("CURRENT BEHAVIOUR, NOT INTENDED: the cut lands mid-word", () => {
-    // truncate() slices at a raw character offset, so the page stops inside a
-    // word ("...from any goroutine: calls made off the main thr"). A sibling
-    // ticket fixes the cut; pinned here so the fix is deliberate.
-    const out = body(getDocs({ library: "mygo", max_tokens: 500 }, bundle));
-    const truncated = out.slice(0, out.indexOf("\n\n---\nTruncated"));
-    expect(truncated.endsWith("thr")).toBe(true);
-    // The fixture really does continue that word, so this is a mid-word cut
-    // rather than a coincidence of the fixture ending.
+  test("the cut lands on a line boundary, not mid-word", () => {
+    const text = out({ library: "mygo", max_tokens: 500 });
+    const truncated = text.slice(0, text.indexOf("\n\n---\nTruncated"));
+    expect(truncated.endsWith("\n")).toBe(true);
+    // A mid-word cut is what this used to do: the fixture's prose continues
+    // with "thread", and the cut stopped inside it.
     expect(FIXTURE_MARKDOWN).toContain("thr");
-    expect(FIXTURE_MARKDOWN).toContain("thread");
+    expect(truncated.endsWith("thr")).toBe(false);
+  });
+
+  test("the whole response stays under the ceiling at every budget", () => {
+    for (const max_tokens of [500, 2000, 6000, 8000]) {
+      const text = out({ library: "mygo", max_tokens });
+      expect(text.length).toBeLessThanOrEqual(max_tokens * 4);
+    }
+  });
+
+  test("a truncated page carries an even number of fence markers", () => {
+    for (const max_tokens of [500, 2000, 6000]) {
+      const text = out({ library: "mygo", max_tokens });
+      expect(fences(text) % 2).toBe(0);
+    }
   });
 });
 
@@ -232,11 +249,19 @@ describe("get: one declaration", () => {
   });
 
   test("a truncated declaration says how to read the rest", () => {
-    const out = body(
-      getDocs({ library: "mygo", symbol: "WindowOptions", max_tokens: 500 }, bundle),
-    );
-    expect(out).toContain("Truncated");
-    expect(out).toContain("Raise max_tokens to read the rest.");
+    const text = out({ library: "mygo", symbol: "WindowOptions", max_tokens: 500 });
+    expect(text).toContain("Truncated");
+    expect(text).toContain("Raise max_tokens to read the rest.");
+  });
+
+  test("a truncated declaration respects the ceiling and closes its fence", () => {
+    // The declared defect: 2212 characters against a 2000 budget, ending with
+    // one unclosed ``` marker.
+    for (const max_tokens of [500, 2000, 6000]) {
+      const text = out({ library: "mygo", symbol: "WindowOptions", max_tokens });
+      expect(text.length).toBeLessThanOrEqual(max_tokens * 4);
+      expect(fences(text) % 2).toBe(0);
+    }
   });
 });
 

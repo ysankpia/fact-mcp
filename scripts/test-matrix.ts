@@ -48,6 +48,28 @@ interface Case {
 
 const has = (text: string, needle: string) => text.includes(needle);
 
+/** The four characters per token the `max_tokens` contract is measured in. */
+const CHARS_PER_TOKEN = 4;
+
+/**
+ * The ceiling check: `max_tokens` is a contract an agent budgets against, so
+ * the whole response — header and truncation footer included — must fit.
+ */
+const underBudget = (text: string, maxTokens: number) =>
+  text.length <= maxTokens * CHARS_PER_TOKEN
+    ? null
+    : `${text.length} characters over a ${maxTokens * CHARS_PER_TOKEN} budget`;
+
+/** An odd number of ``` markers means a truncated response is invalid Markdown. */
+const evenFences = (text: string) => {
+  const markers = text.split("```").length - 1;
+  return markers % 2 === 0 ? null : `${markers} fence markers, which is odd`;
+};
+
+/** Both properties a truncated response must have. */
+const truncatedWell = (text: string, maxTokens: number) =>
+  underBudget(text, maxTokens) ?? evenFences(text);
+
 const cases: Case[] = [
   // ---- search: library only (overview) ----
   // Only a few cases use a bare name: each one spends a GitHub search, and the
@@ -178,7 +200,10 @@ const cases: Case[] = [
       query: "window",
       max_tokens: 20000,
     },
-    expect: (t) => (t.length > 2000 ? null : "large budget returned little"),
+    expect: (t) =>
+      t.length > 2000
+        ? (underBudget(t, 20000) ?? evenFences(t))
+        : "large budget returned little",
   },
   {
     name: "search/query-max-tokens-small",
@@ -188,8 +213,25 @@ const cases: Case[] = [
       query: "window",
       max_tokens: 500,
     },
+    // The declared defect: 2135 characters against a 2000 budget, ending with
+    // one unclosed ``` marker. Both must fail the case now.
     expect: (t) =>
-      t.length > 0 && t.length < 4000 ? null : `unexpected size ${t.length}`,
+      has(t, "more matching section(s) not shown")
+        ? truncatedWell(t, 500)
+        : "no truncation footer for a small budget",
+  },
+  {
+    name: "search/query-max-tokens-mid",
+    tool: "search",
+    args: {
+      library: "github.com/egoist/mygo",
+      query: "window",
+      max_tokens: 2000,
+    },
+    expect: (t) =>
+      has(t, "more matching section(s) not shown")
+        ? truncatedWell(t, 2000)
+        : "no truncation footer for a mid budget",
   },
 
   // ---- search: ambiguity and misses ----
@@ -348,8 +390,36 @@ const cases: Case[] = [
     name: "get/whole-page-truncation",
     tool: "get",
     args: { library: "github.com/egoist/mygo", max_tokens: 500 },
+    // The declared defect: 2250 characters against a 2000 budget. The old
+    // check passed either way because of its `||`, so it never noticed.
     expect: (t) =>
-      has(t, "Truncated") || t.length < 3000 ? null : "no truncation note",
+      has(t, "Truncated")
+        ? truncatedWell(t, 500)
+        : "no truncation note for a small budget",
+  },
+  {
+    name: "get/symbol-truncation",
+    tool: "get",
+    args: {
+      library: "github.com/egoist/mygo",
+      symbol: "WindowOptions",
+      max_tokens: 500,
+    },
+    // The declared defect: 2212 characters against 2000, and exactly one ```
+    // marker, so an agent parsing by fence swallowed the rest.
+    expect: (t) =>
+      has(t, "Truncated") && has(t, "Raise max_tokens")
+        ? truncatedWell(t, 500)
+        : "no truncation note or next step",
+  },
+  {
+    name: "get/whole-page-max-tokens-mid",
+    tool: "get",
+    args: { library: "github.com/egoist/mygo", max_tokens: 2000 },
+    expect: (t) =>
+      has(t, "Truncated")
+        ? truncatedWell(t, 2000)
+        : "no truncation note for a mid budget",
   },
   {
     name: "get/bad-library",
