@@ -121,12 +121,13 @@ describe("rank", () => {
     // The flat type/func bonus is added whether or not a term matched, so a
     // section that shares nothing with the query still scores 8 (type) or 4
     // (func) and survives the `score > 0` filter. "kubernetes" appears
-    // nowhere in the fixture, yet eleven sections come back.
+    // nowhere in the fixture, yet every type and func comes back: nineteen of
+    // them, fifteen types and four funcs.
     //
     // This is a known defect a sibling ticket fixes. It is pinned here so the
     // fix has to change this test on purpose, rather than by accident.
     const ranked = rank(fixtureSections, tokens("kubernetes"));
-    expect(ranked).toHaveLength(11);
+    expect(ranked).toHaveLength(19);
     expect(ranked.every((entry) => entry.score === 4 || entry.score === 8)).toBe(
       true,
     );

@@ -96,13 +96,19 @@ overview instead of documentation.
 Fetch one page or one declaration at full fidelity. Use it once `search` has
 told you what to look at.
 
-| Argument     | Purpose                                         |
-| ------------ | ----------------------------------------------- |
-| `library`    | Library name or module path.                    |
-| `symbol`     | Declaration name, e.g. `WindowOptions`.         |
-| `page`       | Package path, e.g. `github.com/egoist/mygo/ui`. |
-| `version`    | Pin a version.                                  |
-| `max_tokens` | Response budget. Default 8000.                  |
+| Argument     | Purpose                                                    |
+| ------------ | ---------------------------------------------------------- |
+| `library`    | Library name or module path.                               |
+| `symbol`     | `WindowOptions`, or `Window.Title` for a method.           |
+| `page`       | Package path, e.g. `github.com/egoist/mygo/ui`.            |
+| `version`    | Pin a version.                                             |
+| `max_tokens` | Response budget. Default 8000.                             |
+
+A qualified `symbol` selects by receiver and name together, so `Page.Window` is
+the `Window` method of `Page` and nothing else. Type parameters may be left in
+(`Document[T].Window`) or out (`Document.Window`). A bare name that matches
+several declarations, or a receiver that has no such method, comes back as the
+candidates to choose from rather than as one arbitrary declaration.
 
 ## How names resolve
 
