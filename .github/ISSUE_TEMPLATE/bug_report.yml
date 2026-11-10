@@ -1,0 +1,43 @@
+name: Bug report
+description: A lookup returned the wrong thing, or nothing
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The `source:` line in a response names the exact
+        API call that produced it — including it makes this much faster to fix.
+  - type: input
+    id: library
+    attributes:
+      label: What did you ask for?
+      placeholder: mygo, github.com/egoist/mygo, encoding/json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What did you get?
+      description: Paste the response, including any `source:` line.
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: fact-mcp version
+      description: Run `npm ls -g fact-mcp` or check the banner on startup.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - direct (no proxy)
+        - proxy
+        - not sure

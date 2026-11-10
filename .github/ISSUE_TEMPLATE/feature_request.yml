@@ -1,0 +1,25 @@
+name: Feature request
+description: A language, a tool argument, or a behaviour you want
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you solving?
+      description: Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - New language or ecosystem
+        - Better name resolution
+        - Better document extraction
+        - New tool or argument
+        - Something else

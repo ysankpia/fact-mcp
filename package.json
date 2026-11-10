@@ -1,0 +1,56 @@
+{
+  "name": "fact-mcp",
+  "version": "0.1.0",
+  "description": "Fact, not memory. Up-to-date library documentation for AI agents over MCP.",
+  "type": "module",
+  "bin": {
+    "fact-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luhui/fact-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luhui/fact-mcp/issues"
+  },
+  "homepage": "https://github.com/luhui/fact-mcp#readme",
+  "scripts": {
+    "build": "bun build src/index.ts --target node --format esm --outdir dist --minify",
+    "prepack": "npm run build",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test-matrix": "bun run scripts/test-matrix.ts",
+    "inspect": "bunx @modelcontextprotocol/inspector bun run src/index.ts",
+    "release": "./scripts/release.sh",
+    "deploy": "./scripts/deploy-server.sh"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2",
+    "zod": "^4.6.7"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "documentation",
+    "docs",
+    "golang",
+    "go",
+    "ai",
+    "agents",
+    "grounding",
+    "context7-alternative"
+  ],
+  "license": "MIT"
+}
