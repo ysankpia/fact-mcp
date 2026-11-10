@@ -91,6 +91,11 @@ Ask a question about a library. Returns the passages that answer it.
 Leave `query` out and pass only `library` to get a version list and package
 overview instead of documentation.
 
+A `query` with no `library` is treated as the name to resolve, and that
+library's documentation is then searched with the same query, exactly as if you
+had named it. If the name matches several modules you get the candidates
+instead, because resolution always happens before any documentation is read.
+
 ### `get`
 
 Fetch one page or one declaration at full fidelity. Use it once `search` has
@@ -179,7 +184,7 @@ from stale data.
 ```sh
 bun install
 bun run typecheck
-bun run test-matrix          # 31 cases, every tool argument
+bun run test-matrix          # 33 cases, every tool argument
 bun run inspect              # MCP Inspector
 ```
 

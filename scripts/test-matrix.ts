@@ -131,10 +131,44 @@ const cases: Case[] = [
     name: "search/query-no-library",
     tool: "search",
     args: { query: "gin" },
+    spendsSearch: true,
+    // A query-only call resolves the name first. "gin" may come back as
+    // candidates; either way the tool must not claim the package has no docs.
     expect: (t) =>
-      has(t, "gin-gonic") || has(t, "ambiguous") || has(t, "Choose one")
+      has(t, "no godoc text")
+        ? "claimed the package has no godoc text"
+        : has(t, "gin-gonic") || has(t, "ambiguous") || has(t, "Choose one")
+          ? null
+          : "gin not resolved or offered as candidate",
+  },
+  {
+    name: "search/query-only-searches-docs",
+    tool: "search",
+    args: { query: "cobra" },
+    spendsSearch: true,
+    // `cobra` resolves to github.com/spf13/cobra, which has 3,452 characters
+    // of godoc. Answering with the no-docs message means the bundle was
+    // fetched as an overview and the query was never run against the docs.
+    expect: (t) =>
+      has(t, "no godoc text")
+        ? "claimed the package has no godoc text"
+        : has(t, "github.com/spf13/cobra") &&
+            has(t, "### Command (type)") &&
+            has(t, "pkg.go.dev/github.com/spf13/cobra")
+          ? null
+          : "query-only search did not return cobra's godoc sections",
+  },
+  {
+    name: "search/query-only-ambiguous",
+    tool: "search",
+    args: { query: "gin middleware" },
+    spendsSearch: true,
+    // Resolution happens before any docs fetch: a name that matches several
+    // modules must still return the candidates, not a docs search.
+    expect: (t) =>
+      has(t, "Choose one") && has(t, "gin")
         ? null
-        : "gin not resolved or offered as candidate",
+        : "query-only ambiguous name did not return candidates",
   },
   {
     name: "search/query-max-tokens-large",
