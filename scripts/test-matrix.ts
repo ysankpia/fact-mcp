@@ -122,6 +122,19 @@ const evenFences = (text: string) => {
 const truncatedWell = (text: string, maxTokens: number) =>
   underBudget(text, maxTokens) ?? evenFences(text);
 
+/**
+ * The provenance line a caller cites. A standard-library package's pkg.go.dev
+ * address carries no version — `encoding/json@v1.27.4` answers 400 — so an
+ * `@` in that link is a dead citation.
+ */
+const stdlibSource = (text: string, expectedPath: string) => {
+  const line = text.split("\n").find((l) => l.startsWith("source: "));
+  if (!line) return "no source: line";
+  return line === `source: https://pkg.go.dev/${expectedPath}`
+    ? null
+    : `stdlib source link is "${line}"`;
+};
+
 const cases: Case[] = [
   // ---- search: library only (overview) ----
   // Only a few cases use a bare name: each one spends a GitHub search, and the
@@ -565,14 +578,26 @@ const cases: Case[] = [
     name: "real/json",
     tool: "search",
     args: { library: "encoding/json", query: "Marshal" },
-    expect: (t) => (has(t, "Marshal") ? null : "Marshal not found"),
+    expect: (t) =>
+      has(t, "Marshal") ? stdlibSource(t, "encoding/json") : "Marshal not found",
   },
   {
     name: "real/stdlib-net-http",
     tool: "get",
     args: { library: "net/http", symbol: "Server", max_tokens: 800 },
     expect: (t) =>
-      has(t, "type Server struct") ? null : "net/http Server missing",
+      has(t, "type Server struct")
+        ? stdlibSource(t, "net/http")
+        : "net/http Server missing",
+  },
+  {
+    name: "real/stdlib-source-link",
+    tool: "get",
+    args: { library: "encoding/json", symbol: "Marshal" },
+    expect: (t) =>
+      has(t, "func Marshal")
+        ? stdlibSource(t, "encoding/json")
+        : "Marshal declaration missing",
   },
   {
     name: "real/owner-repo-shorthand",

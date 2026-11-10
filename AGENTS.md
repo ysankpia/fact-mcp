@@ -17,7 +17,9 @@ returns Markdown directly.
 
 | Path                     | Role                                                |
 | ------------------------ | --------------------------------------------------- |
-| `src/index.ts`           | Entry point: tool registration and bundle fetching  |
+| `src/index.ts`           | Entry point: stdio transport and startup banner     |
+| `src/server.ts`          | The MCP server: identity and both tool registrations |
+| `src/version.ts`         | The reported version, read from `package.json`      |
 | `src/sections.ts`        | Splitting pkg.go.dev Markdown into sections         |
 | `src/rank.ts`            | Tokenising a query and scoring sections against it  |
 | `src/render.ts`          | Response assembly, truncation, headers and overviews |
@@ -28,12 +30,12 @@ returns Markdown directly.
 | `src/proxy.ts`           | Proxy transport with retry                          |
 | `src/cache.ts`           | In-process LRU, five minute TTL                     |
 | `server/proxy.ts`        | The optional `fact-proxy` orchestrator              |
-| `scripts/test-matrix.ts` | 41 cases covering every tool argument               |
+| `scripts/test-matrix.ts` | 43 cases covering every tool argument               |
 | `test/`                  | Offline unit tests and the pkg.go.dev fixture       |
 
 The tool modules take a bundle as an argument and never fetch, so a fixture
-drives every branch with no network. The entry point does the fetching and
-passes the result in; keep that direction.
+drives every branch with no network. The server does the fetching and passes
+the result in; keep that direction.
 
 ## Commands
 

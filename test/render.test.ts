@@ -16,6 +16,7 @@ import {
   header,
   moreSectionsNote,
   noMatch,
+  overview,
   sectionChunks,
   sectionsResponse,
   text,
@@ -23,7 +24,12 @@ import {
   truncationNote,
 } from "../src/render.ts";
 import { sections } from "../src/sections.ts";
-import { FIXTURE_MARKDOWN, bundleWithoutDocs, mygoBundle } from "./support/bundle.ts";
+import {
+  FIXTURE_MARKDOWN,
+  bundleWithoutDocs,
+  mygoBundle,
+  stdlibBundle,
+} from "./support/bundle.ts";
 
 const bundle = mygoBundle();
 
@@ -233,6 +239,47 @@ describe("header", () => {
   test("uses the primary package path when the bundle names one", () => {
     expect(header(mygoBundle({ primaryPackage: "github.com/egoist/mygo/ui" })))
       .toContain("package: github.com/egoist/mygo/ui\n");
+  });
+
+  test("a standard-library package links without a version", () => {
+    // pkg.go.dev answers 400 for encoding/json@v1.27.4 and for
+    // std@v1.27.4/encoding/json, so the link must carry no version at all.
+    expect(header(stdlibBundle())).toBe(
+      [
+        "library: std",
+        "version: v1.27.4",
+        "package: encoding/json",
+        "source: https://pkg.go.dev/encoding/json",
+        "",
+      ].join("\n"),
+    );
+  });
+});
+
+describe("overview", () => {
+  test("a blank line precedes every heading so Markdown renders it", () => {
+    const lines = overview(bundle).split("\n");
+    const headings = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.startsWith("## "));
+    expect(headings.map(({ line }) => line)).toEqual([
+      "## Versions",
+      "## Packages",
+      "## Next",
+    ]);
+    for (const { index } of headings) expect(lines[index - 1]).toBe("");
+  });
+
+  test("a missing repository URL leaves no doubled blank line", () => {
+    const noRepo = mygoBundle({
+      module: {
+        path: "github.com/egoist/mygo",
+        version: "v0.8.3",
+        commitTime: "2025-03-04T10:00:00Z",
+        isLatest: true,
+      },
+    });
+    expect(overview(noRepo)).not.toContain("\n\n\n");
   });
 });
 
