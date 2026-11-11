@@ -56,32 +56,23 @@ create a window", …) against the packages that answer them:
 cross-ecosystem refusal; 0.1.3 shipped snippets and field lookup, and passed
 the gate above. Further 0.1 patches are for regressions, not new scope.
 
-## 0.2 — Python, finished
+## 0.2 — unassigned
 
-Same gate, same thresholds, different ecosystem. Python ships when it passes,
-not when it starts.
+Same gate, same thresholds. **Python is dropped as the 0.2 ecosystem.**
 
-**The source comparison is done, and no single fetch passes.** Nine questions
-across requests, flask, django and pydantic: PyPI's description answered 4/9,
-the repository README 3/9, the documentation landing page 1/9. READMEs carry
-quickstart snippets; API detail lives on deep documentation pages. Pydantic's
-PyPI description alone is 34,756 tokens, larger than an entire Go answer, and
-Django's repository README is a three-token stub.
-[The measurements](research/python-docs-sources.md) are recorded in full.
+The source comparison and a throwaway prototype are recorded in
+[research/python-docs-sources.md](research/python-docs-sources.md). In short:
+PyPI descriptions answered 4/9 questions, repository READMEs 3/9, documentation
+landing pages 1/9. A Sphinx search-index path answered 4/5 of its questions, but
+Django needs server-rendered HTML and pydantic uses Pagefind, a WASM-backed
+index. That is a collection of per-site scrapers, not one ecosystem adapter;
+calling a Sphinx-only subset "Python finished" would be false.
 
-Python is therefore not an adapter problem. It needs a search-then-fetch path
-over HTML documentation: query the site's search, fetch the top page, strip
-HTML, rank sections. 0.2 remains unstarted until a throwaway prototype of that
-path passes the gate on the same nine questions. If it cannot, Python is
-dropped and the next ecosystem is chosen for a Markdown documentation API like
-the one Go has.
-
-- A prototype of the search-then-fetch path, measured against the same gate —
-  the next step, not an adapter.
-- If it passes: an adapter behind the existing
-  `buildBundle({ name, version, page, want })` shape, routed by ecosystem,
-  with the benchmark rewritten for Python at the same thresholds.
-- Non-Python names refused explicitly, as in 0.1.x.
+The next ecosystem must expose a Markdown documentation API like pkg.go.dev's.
+None obvious does. If none appears, 0.2 becomes **Go, deeper**: close the one
+remaining benchmark miss (`net/http` timeout, a field on `Server`) and ship
+12/12 rather than a second ecosystem that cannot meet the standard. This is a
+decision for the next session, not a build in progress.
 
 ## 0.3 and later — more ecosystems
 
