@@ -85,16 +85,18 @@ Ask a question about a library. Returns the passages that answer it.
 | `query`      | What you need, in words or API names.       |
 | `library`    | Library name, module path, or `owner/repo`. |
 | `version`    | Pin a version. Default: latest.             |
-| `topic`      | Keep only the sections that mention it.     |
-| `max_tokens` | Response budget. Default 6000.              |
+| `topic`      | Rank the sections that mention it first.    |
+| `max_tokens` | Response budget. Default 3000.              |
 
 Leave `query` out and pass only `library` to get a version list and package
 overview instead of documentation.
 
-`topic` is a filter, not a reweighting: the sections that do not mention it are
-dropped, and the ones that do keep the order the query ranked them in. Pass
-`topic` without a `query` and it selects the sections about that topic on its
-own, which needs a `library` to look the documentation up in.
+`topic` is a hint, not a filter: the sections that mention it are ranked first,
+and everything the query matched is still returned. That matters because a
+topic is usually a phrase the prose does not use verbatim — `authentication`,
+`window sizing` — and filtering on those dropped the answer along with the
+noise. Pass `topic` without a `query` and it becomes the query, which needs a
+`library` to look the documentation up in.
 
 A `query` with no `library` is treated as the name to resolve, and that
 library's documentation is then searched with the same query, exactly as if you

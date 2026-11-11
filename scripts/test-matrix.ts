@@ -69,35 +69,31 @@ const headings = (text: string) =>
  */
 const sectionChunks = (text: string) => text.split("\n### ").slice(1);
 
-/** Each returned section must mention the topic, not merely be near it. */
-const everySectionMentions = (text: string, topic: string) => {
-  const chunks = sectionChunks(text);
-  if (chunks.length === 0) return "no sections returned";
-  const off = chunks.filter(
-    (chunk) => !chunk.toLowerCase().includes(topic.toLowerCase()),
-  );
-  return off.length === 0
-    ? null
-    : `${off.length} returned section(s) do not mention ${topic}`;
-};
-
 /**
- * What a topic must do: return a strict subset of the sections the same query
- * returns without it, and drop every section that does not mention it. A
- * reweighted ranking fails the first half; a filter that keeps unrelated
- * sections fails the second.
+ * What a topic must do: keep every section the query returned, and move the
+ * ones that mention it upward. A filter fails the first half by dropping
+ * sections; a no-op fails the second by returning the same order.
  */
-const narrowsTo = (text: string, baseline: string | undefined, topic: string) => {
+const boostsTopic = (
+  text: string,
+  baseline: string | undefined,
+  topic: string,
+) => {
   if (baseline === undefined) return "no baseline response to compare against";
   const base = headings(baseline);
-  const narrow = headings(text);
-  if (narrow.length === 0) return `topic ${topic} returned no sections`;
-  const outside = narrow.filter((heading) => !base.includes(heading));
-  if (outside.length > 0)
-    return `${outside.length} narrowed section(s) the untopiced query did not return: ${outside.join(", ")}`;
-  if (narrow.length >= new Set(base).size)
-    return `same ${narrow.length} sections with and without the topic`;
-  return everySectionMentions(text, topic);
+  const boosted = headings(text);
+  if (boosted.length === 0) return `topic ${topic} returned no sections`;
+  const missing = base.filter((heading) => !boosted.includes(heading));
+  if (missing.length > 0)
+    return `topic ${topic} dropped ${missing.length} section(s) the query returned: ${missing.join(", ")}`;
+  if (JSON.stringify(boosted) === JSON.stringify(base))
+    return `topic ${topic} did not change the order (it is being ignored)`;
+  const mentioned = boosted.find((heading) => heading.toLowerCase().includes(topic.toLowerCase()));
+  const before = base.find((heading) => heading.toLowerCase().includes(topic.toLowerCase()));
+  if (!mentioned || !before) return null;
+  return boosted.indexOf(mentioned) <= base.indexOf(before)
+    ? null
+    : `topic ${topic} did not move its section up`;
 };
 
 /** The four characters per token the `max_tokens` contract is measured in. */
@@ -255,31 +251,28 @@ const cases: Case[] = [
         : "unmatched query still returned sections",
   },
   {
-    name: "search/query-topic-narrow",
+    name: "search/query-topic-boosts",
     tool: "search",
     // The same query without the topic, measured in this same run, is the
     // baseline. The case this replaced asserted the output contained
     // "TitleBar", which the untopiced response already did, so it could never
-    // fail; before ticket #8 a topic only reweighted the ranking, and the
-    // untopiced answer still led with WindowOptions.
+    // fail.
     //
-    // "title bar" rather than "window" because both answers then fit inside
-    // the 20,000-token budget: "window" returns 147,631 characters and would
-    // compare a truncated prefix with a whole list. Here the narrowed sections
-    // (6) are a strict subset of the untopiced ones (78), and each mentions
-    // the topic.
+    // A topic is a hint: it must keep every section the query matched and move
+    // the ones that mention it upward. Both calls pass module paths so the
+    // comparison is two calls in one run, not a rate-limited name lookup.
     args: {
       library: "github.com/egoist/mygo",
-      query: "title bar",
+      query: "window",
       topic: "TitleBarStyle",
       max_tokens: 20000,
     },
     baseline: {
       library: "github.com/egoist/mygo",
-      query: "title bar",
+      query: "window",
       max_tokens: 20000,
     },
-    expect: (t, base) => narrowsTo(t, base, "TitleBarStyle"),
+    expect: (t, base) => boostsTopic(t, base, "TitleBarStyle"),
   },
   {
     name: "search/query-no-library",

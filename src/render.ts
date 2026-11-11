@@ -199,19 +199,17 @@ export function documentMap(sections: Section[]): string {
 /**
  * The response for a query that matched no section.
  *
- * `topic`, when given, is part of what came back empty: naming only the query
- * would send a caller to change the one argument that did match something.
- * The advice follows the same split — with no topic there is something left to
- * narrow with, with one the caller must change or drop it.
+ * `topic` is not part of it: it is a ranking hint, so it cannot be why nothing
+ * matched. Naming it here would send the caller to change an argument that had
+ * no effect on the outcome.
  */
 export function noMatch(
   headerText: string,
   query: string,
   map: string,
   library: string,
-  topic?: string,
 ): string {
-  return `${headerText}${noMatchBody(query, map, library, topic)}`;
+  return `${headerText}${noMatchBody(query, map, library)}`;
 }
 
 /**
@@ -224,16 +222,8 @@ export function noMatchBody(
   query: string,
   map: string,
   library: string,
-  topic?: string,
 ): string {
-  const scope =
-    topic && query
-      ? `"${query}" with topic "${topic}"`
-      : `"${query || topic || ""}"`;
-  const next = topic
-    ? `Try another topic, or call get(library="${library}", symbol="Name").`
-    : `Narrow with topic, or call get(library="${library}", symbol="Name").`;
-  return `No section matched ${scope}. Document map:\n\n${map}\n\n${next}`;
+  return `No section matched "${query}". Document map:\n\n${map}\n\nNarrow with topic, or call get(library="${library}", symbol="Name").`;
 }
 
 /** A section as it appears in a search response. */

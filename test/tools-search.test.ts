@@ -94,18 +94,21 @@ describe("search: query", () => {
     );
   });
 
-  test("the best-ranked section leads the response", () => {
+  test("the section that answers the question leads the response", () => {
     const out = body(
       searchDocs(
         { query: "create a native window", library: "mygo", max_tokens: 20000 },
         bundle,
       ),
     );
-    // WindowOptions is the top-ranked section for this query.
-    expect(out).toContain("### WindowOptions (type)");
-    const windowOptionsAt = out.indexOf("### WindowOptions (type)");
+    // "create" is not in any API name; NewWindow is the declaration that
+    // creates one. It must lead, with WindowOptions (the struct it takes)
+    // next. Ranking on literal words alone put WindowOptions first.
+    expect(out).toContain("### NewWindow (func)");
+    const newWindowAt = out.indexOf("### NewWindow (func)");
     const firstHeadingAt = out.indexOf("\n### ");
-    expect(windowOptionsAt).toBe(firstHeadingAt + 1);
+    expect(newWindowAt).toBe(firstHeadingAt + 1);
+    expect(out).toContain("### WindowOptions (type)");
   });
 
   test("a symbol query surfaces the declaration that names it", () => {
@@ -115,75 +118,33 @@ describe("search: query", () => {
     expect(out).toContain("### Hide (method)");
   });
 
-  test("a topic keeps only the sections that mention it", () => {
-    // "TitleBarStyle" appears in one section of the fixture. A topic is a
-    // filter, so the answer is that section alone — not the 23 sections the
-    // bare query ranks, reordered.
-    const wide = headings(
-      body(
-        searchDocs(
-          { query: "window", library: "mygo", max_tokens: 20000 },
-          bundle,
+  test("a topic ranks the sections that mention it first, and drops none", () => {
+    const out = (topic?: string) =>
+      headings(
+        body(
+          searchDocs(
+            { query: "window", topic, library: "mygo", max_tokens: 20000 },
+            bundle,
+          ),
         ),
-      ),
-    );
-    const narrow = headings(
-      body(
-        searchDocs(
-          {
-            query: "window",
-            topic: "TitleBarStyle",
-            library: "mygo",
-            max_tokens: 20000,
-          },
-          bundle,
-        ),
-      ),
-    );
+      );
 
-    expect(narrow).toEqual(["WindowOptions (type)"]);
-    // The section the unnarrowed answer leads with shares no "TitleBarStyle"
-    // mention with the topic, so it must be gone rather than demoted.
-    expect(wide).toContain("WindowStateStore (type)");
-    expect(narrow).not.toContain("WindowStateStore (type)");
-    // Strict subset: every narrowed section is one the unnarrowed answer had.
-    expect(narrow.length).toBeGreaterThan(0);
-    expect(narrow.every((heading) => wide.includes(heading))).toBe(true);
-    expect(narrow.length).toBeLessThan(wide.length);
+    const wide = out();
+    const boosted = out("Close");
+
+    // A hint, not a filter: the same sections come back, in a different order.
+    // Filtering broke exactly the natural-language case — "authentication" or
+    // "sizing" is not a word the prose uses, so a filter dropped the answer.
+    expect([...boosted].sort()).toEqual([...wide].sort());
+    expect(boosted).not.toEqual(wide);
+    // The section that declares Close moves up; it does not have to lead,
+    // because the query's own matches still outrank it.
+    const movedUp = (heading: string) =>
+      boosted.indexOf(heading) < wide.indexOf(heading);
+    expect(movedUp("Close (method)")).toBe(true);
   });
 
-  test("a topic keeps the unnarrowed order of the sections it keeps", () => {
-    const narrow = headings(
-      body(
-        searchDocs(
-          {
-            query: "window",
-            topic: "Close",
-            library: "mygo",
-            max_tokens: 20000,
-          },
-          bundle,
-        ),
-      ),
-    );
-    const wide = headings(
-      body(
-        searchDocs(
-          { query: "window", library: "mygo", max_tokens: 20000 },
-          bundle,
-        ),
-      ),
-    );
-
-    // "Close" is mentioned by seven ranked sections: a filter keeps them in
-    // the order the query ranked them, and drops the rest.
-    expect(narrow.length).toBe(7);
-    const kept = wide.filter((heading) => narrow.includes(heading));
-    expect(narrow).toEqual(kept);
-    expect(narrow.length).toBeLessThan(wide.length);
-  });
-
-  test("a topic that no section mentions says so, naming the query and the topic", () => {
+  test("a topic that no section mentions changes nothing and is not blamed", () => {
     const out = body(
       searchDocs(
         {
@@ -195,9 +156,10 @@ describe("search: query", () => {
         bundle,
       ),
     );
-    expect(out).toContain('No section matched "window" with topic "zzzqqq"');
-    expect(out).toContain("Document map:");
-    expect(out).not.toContain("### WindowOptions (type)");
+    // The query still matched, so the answer is still returned; the topic had
+    // no effect and must not be presented as the reason for an empty result.
+    expect(out).toContain("### WindowOptions (type)");
+    expect(out).not.toContain("No section matched");
   });
 
   test("a small budget still returns the header and a truncation note", () => {
@@ -222,9 +184,11 @@ describe("search: query", () => {
     expect(out).not.toContain('topic="window"');
   });
 
-  test("the footer of a narrowed response offers to widen it", () => {
-    // Telling a caller who already passed a topic to narrow with a topic is a
-    // dead end: what widens a narrowed search is dropping the topic.
+  test("the footer of a response with a topic says it ranked, not filtered", () => {
+    // The footer is one of the places that describe `topic`; it must say what
+    // the parameter really does. It must not name the query as the topic
+    // either: every section already matched the query, so that hint would
+    // change nothing.
     const out = body(
       searchDocs(
         { query: "window", topic: "Close", library: "mygo", max_tokens: 500 },
@@ -233,7 +197,7 @@ describe("search: query", () => {
     );
     expect(out).toContain("more matching section(s) not shown");
     expect(out).toContain('topic="Close"');
-    expect(out).toContain("drop the topic");
+    expect(out).toContain("ranked the sections that mention it first");
   });
 
   test("the whole response stays under the ceiling at every budget", () => {

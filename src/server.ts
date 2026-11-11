@@ -101,7 +101,7 @@ export function createServer(): McpServer {
           .string()
           .optional()
           .describe(
-            'Keep only the sections that mention this area or symbol, e.g. "ui" or "Column": a filter, not a reweighting. Narrows a query; with no query it selects the sections about the topic on its own.',
+            'Rank the sections that mention this area or symbol first, e.g. "ui" or "Column". A hint, not a filter: sections the query matched are still returned. With no query it becomes the query.',
           ),
         max_tokens: z
           .number()
@@ -109,7 +109,9 @@ export function createServer(): McpServer {
           .min(500)
           .max(20000)
           .optional()
-          .describe("Response budget. Default 6000."),
+          .describe(
+            "Response budget. Default 3000, which covers the answer for a typical question; raise it to read more of the page.",
+          ),
       }),
     },
     async ({ query, library, version, topic, max_tokens }) => {
@@ -118,7 +120,7 @@ export function createServer(): McpServer {
         library,
         version,
         topic,
-        max_tokens: max_tokens ?? 6000,
+        max_tokens: max_tokens ?? 3000,
       };
 
       const queryText = (query ?? "").trim();

@@ -17,7 +17,7 @@ import {
   sectionsResponse,
   text,
 } from "./render.ts";
-import { rank, score, tokens } from "./rank.ts";
+import { rank, queryTerms, score, tokens } from "./rank.ts";
 import { sections } from "./sections.ts";
 
 export interface SearchArgs {
@@ -92,7 +92,11 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
   // with the query alone is what keeps a narrowed answer a subset of the
   // unnarrowed one — folding the topic into the same term list would only
   // reweight it. With no query the topic is the whole request, so it ranks.
-  const terms = tokens(query || topic);
+  //
+  // `queryTerms` adds the API stems a verb implies ("create" → "new") and
+  // drops question words. Without it, "how do I create a window" scores the
+  // long WindowOptions struct above the NewWindow func that answers it.
+  const terms = queryTerms(query || topic);
   const topicTerms = tokens(topic);
   const doc = bundle.docs;
   const pkg = bundle.primaryPackage ?? bundle.module.path;
@@ -132,23 +136,26 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
   const docText = doc.markdown;
   const all = sections(docText);
   const ranked = rank(all, terms);
-  // A topic selects: every section that does not mention it is dropped, and
-  // the ones that do stay in the order the query ranked them.
-  const narrowed = topicTerms.length
-    ? ranked.filter((entry) => score(entry.section, topicTerms) > 0)
+  // `topic` is a hint, not a filter. It lifts the sections that mention it
+  // above the rest, but every section the query matched is still returned:
+  // a hard filter drops the answer too whenever the topic word is not in the
+  // prose, and a natural-language topic ("authentication", "sizing") is
+  // exactly the case where that happens.
+  const ordered = topicTerms.length
+    ? ranked
+        .map((entry) => ({
+          ...entry,
+          score: entry.score + score(entry.section, topicTerms),
+        }))
+        .sort((a, b) => b.score - a.score)
     : ranked;
   const headerText = header(bundle);
 
-  if (narrowed.length === 0) {
+  if (ordered.length === 0) {
     return text(
       fitToBudget(
         headerText,
-        noMatchBody(
-          query,
-          documentMap(all),
-          bundle.module.path,
-          topic || undefined,
-        ),
+        noMatchBody(query, documentMap(all), bundle.module.path),
         maxChars,
         `Pass a query to search the docs, or call get(library="${bundle.module.path}", symbol="Name").`,
       ),
@@ -156,22 +163,18 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
   }
 
   // The footer only prints when sections had to be left out, so the next step
-  // is offered unconditionally and stays out of a response that fits. A caller
-  // who already passed a topic is told what widens the search, not to narrow a
-  // search that is already narrowed.
-  //
-  // The advice must not name the query as the topic: every section already
-  // matched the query, so that filter would keep all of them and change
-  // nothing. A name from the results is what actually narrows.
+  // is offered unconditionally and stays out of a response that fits. The
+  // advice must not name the query as the topic: every section already matched
+  // the query, so that hint would change nothing.
   const nextCall = `call get(library="${bundle.module.path}", symbol="Name")`;
   const nextStep = topic
-    ? `topic="${topic}" kept only the sections that mention it; drop the topic to widen, or ${nextCall}.`
+    ? `topic="${topic}" ranked the sections that mention it first, or ${nextCall}.`
     : `Narrow with topic set to one name from these results (a symbol or area), or ${nextCall}.`;
 
   return text(
     sectionsResponse(
       headerText,
-      narrowed.map((entry) => entry.section),
+      ordered.map((entry) => entry.section),
       maxChars,
       nextStep,
     ),

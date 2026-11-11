@@ -165,7 +165,13 @@ function findDeclarations(all: Section[], want: Wanted): Found {
   const named = candidatesOf(all.filter((section) => matchName(section) === name));
 
   if (want.receiver === undefined) {
-    return { matches: named, suggestions: named, receiverKnown: false };
+    // In Go an unqualified name refers to the package-level declaration. When
+    // `ListenAndServe` is both `func ListenAndServe` and `Server.ListenAndServe`,
+    // the bare name means the func — the method always needs a receiver. Only
+    // several package-level declarations of the same name are truly ambiguous.
+    const atPackageLevel = named.filter((section) => !section.receiver);
+    const matches = atPackageLevel.length > 0 ? atPackageLevel : named;
+    return { matches, suggestions: named, receiverKnown: false };
   }
 
   const receiver = want.receiver.toLowerCase();
@@ -236,12 +242,22 @@ function prose(section: Section): string {
  * response names the ambiguity and lists what to choose from.
  */
 function ambiguous(want: Wanted, matches: Section[], bundle: ResolvedBundle) {
+  // The suggestion must name a declaration the caller could not already have
+  // named: a package-level declaration's own symbol is the bare name, so
+  // suggesting it repeats the ambiguous call that produced this answer. Prefer
+  // a receiver-qualified one, which is reachable in one call.
+  const suggestion =
+    matches.find(
+      (m) => symbolOf(m).toLowerCase() !== want.name.toLowerCase(),
+    ) ?? undefined;
   return [
     `"${want.name}" names ${matches.length} declarations in this package, so it is ambiguous. Pick one:`,
     "",
     ...matches.map(candidate),
     "",
-    `Call get(library="${bundle.module.path}", symbol="${symbolOf(matches[0])}"), or name another of them.`,
+    suggestion
+      ? `Call get(library="${bundle.module.path}", symbol="${symbolOf(suggestion)}"), or name another of them with its receiver.`
+      : `Name one with its receiver, e.g. symbol="Type.${want.name}".`,
   ].join("\n");
 }
 
