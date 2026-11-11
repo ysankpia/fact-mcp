@@ -73,6 +73,23 @@ retry loop by hand:
 It retries only transient failures (connection reset, TLS errors, timeouts,
 HTTP 429/502/503/504) and reports a real failure on the first attempt.
 
+A value written on the remote side travels through a pipe, never a heredoc:
+
+```sh
+printf '%s\n' "$VALUE" | ssh "$FACT_HOST" 'sudo tee /etc/fact-mcp.env >/dev/null'
+```
+
+A heredoc replaces stdin, so a script fed with `ssh 'bash -s' <<EOF` cannot
+also receive piped data: the script body itself is what `tee` writes into the
+file. This happened once to `/etc/fact-mcp.env` and had to be restored from a
+backup.
+
+## Agent harness
+
+Background tasks report completion on their own. `TaskOutput` is for one
+`block=false` peek at progress; after that, end the turn and wait for the
+notification rather than polling.
+
 ## Releasing
 
 ```sh
