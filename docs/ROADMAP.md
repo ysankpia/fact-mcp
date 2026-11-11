@@ -14,7 +14,7 @@ Position within the response is a diagnostic, not a gate. The reader is an agent
 that reads the whole answer, so an answer at rank 5 costs the same as one at
 rank 1; what changes the outcome is whether it is inside the budget at all.
 
-## Where we are — 0.1.1
+## Where we are — 0.1.2
 
 **Shipped**
 
@@ -22,8 +22,13 @@ rank 1; what changes the outcome is whether it is inside the budget at all.
 - Go only, for now: module paths, `owner/repo`, bare names resolved through
   GitHub star order, and the standard library.
 - An optional, self-hosted proxy for slow routes; direct mode is the default.
-- 158 offline unit tests against committed pkg.go.dev fixtures, a 43-case live
+- 166 offline unit tests against committed pkg.go.dev fixtures, a 44-case live
   matrix, and CI that gates on both. Releases publish to npm over OIDC.
+- A twelve-question benchmark (`bun run bench`) that gates on two numbers —
+  answers inside a 1,500-token budget and the median response size — as a
+  ratchet against `scripts/bench-baseline.json`.
+- A bare name whose leading project is not Go is refused with that ecosystem
+  named, instead of resolving to a weak same-named Go package.
 
 **Measured** — twelve real questions ("how do I add middleware", "how do I
 create a window", …) against the packages that answer them:
@@ -33,7 +38,7 @@ create a window", …) against the packages that answer them:
 | Answer present at a 1,500-token budget | 10 / 12 | ≥ 11 / 12 |
 | Answer present at the default budget (3,000) | 12 / 12 | 12 / 12 |
 | Median response at the default budget | ~2,980 tokens | ≤ 1,500 tokens |
-| Non-Go library refused explicitly | 0 / 4 | 4 / 4 |
+| Non-Go library refused explicitly | 4 / 4 | 4 / 4 |
 | Answer among the first 3 sections | 7 / 12 | diagnostic only |
 
 **Gaps behind those numbers**
@@ -50,9 +55,6 @@ create a window", …) against the packages that answer them:
 - Fields cannot be fetched: `get(symbol="WindowOptions.Transparent")` and
   `get(symbol="Server.ReadTimeout")` miss, because a field lives inside its
   struct's body rather than as a declaration of its own.
-- A name from another ecosystem resolves to an unrelated Go package: `react`
-  becomes `github.com/rocketlaunchr/react`, `mongodb` becomes Go driver
-  candidates. A plausible wrong answer is worse than a refusal.
 
 ## 0.1.x — Go, finished
 
@@ -60,10 +62,7 @@ The 0.1 line stays open until the gate above passes. Patches ship as work lands;
 one item may take more than one patch, and the version numbers below are the
 order, not a promise of one patch each.
 
-**0.1.2 — the gate, and honest refusal.** Commit the twelve-question benchmark
-as a script, run it in CI, and make a non-Go name say it is not covered instead
-of resolving to a Go package. No ranking change in this release: it exists to
-make the standard enforceable.
+0.1.2 shipped the benchmark gate and the cross-ecosystem refusal.
 
 **0.1.3 — answers, not pages.** Field-level lookup (`Type.Field`) and snippet
 responses: a declaration's signature plus the prose or field lines around the

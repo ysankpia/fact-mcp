@@ -305,7 +305,6 @@ else
   # Newest released heading, e.g. `## [1.2.3] - 2026-10-23` or `## v1.2.3`.
   top=$(grep -oE '^##+[[:space:]]+\[?v?[0-9]+\.[0-9]+\.[0-9]+' "$changelog" 2>/dev/null |
     head -1 | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^v//')
-  # Highest tag by version, not by commit: `git describe` would follow graph order.
   # Highest tag by version, not by commit: `git describe` follows graph order.
   # Monorepo tags are often namespaced (`pkg@1.2.3`), and non-version tags
   # (`nightly`) must not be read as the newest release.
@@ -328,7 +327,20 @@ else
   elif [ "${top%%-*}" = "${latest%%-*}" ]; then
     ok "newest tag ($latest_tag) matches the changelog ($top)"
   else
-    miss "newest tag ($latest_tag) does not match the changelog ($top)"
+    # A release commit bumps the manifest and the changelog before the tag
+    # exists, so the changelog may name one version ahead of the newest tag.
+    # Accept that only when package.json names the same version; anything else
+    # is a real mismatch.
+    pending=""
+    if [ -f package.json ]; then
+      pending=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' package.json 2>/dev/null |
+        head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+    fi
+    if [ -n "$pending" ] && [ "${top%%-*}" = "$pending" ]; then
+      ok "pending release $top (newest tag $latest_tag; tag it to publish)"
+    else
+      miss "newest tag ($latest_tag) does not match the changelog ($top)"
+    fi
   fi
 
   non_semver=$(git tag 2>/dev/null | grep -Ev -- "$tag_pattern" | head -5)
