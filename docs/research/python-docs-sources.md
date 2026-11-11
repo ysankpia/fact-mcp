@@ -55,3 +55,48 @@ Decision: 0.2 remains unstarted. The next step is a throwaway prototype of the
 search-then-fetch path on these nine questions. It ships Python only if it
 passes the same gate; otherwise Python is dropped and the next ecosystem is
 chosen for a Markdown documentation API like the one Go has.
+
+## Prototype: 2026-11-11
+
+A throwaway script used each site's own search index, fetched the top source
+pages, parsed reST sections and ranked them with the same code the Go path
+uses. Budget: 1,500 tokens.
+
+| Question | Source | Result |
+| --- | --- | --- |
+| requests: send a GET request | Sphinx `searchindex.js` | answered |
+| requests: set a timeout | Sphinx | answered |
+| requests: upload a file | Sphinx | answered |
+| flask: define a route | Sphinx | **miss** — the site's index has no term `route`, `routes` or `routing`, so no document was selected |
+| flask: return JSON | Sphinx | answered |
+
+Sphinx path: **4/5**. The index is 87 KB for requests and 186 KB for flask;
+the sources are `_sources/<doc>.rst.txt`. The one miss is an index gap, not a
+ranking failure: the API name is absent from the site's own vocabulary.
+
+The other four questions cannot run through one path:
+
+- **Django** has no `searchindex.js`. Its search is server-rendered HTML: the
+  "define a model" result page contains `models.Model`, but the page is about
+  10,000 tokens of HTML and needs its own parser and slicer.
+- **Pydantic** uses Pagefind (`pagefind-body` and a `/pagefind/` index), a
+  WASM-backed static index rather than a term map. Searching it needs a
+  Pagefind client, not a JSON lookup.
+
+So Python is a collection of per-site backends — Sphinx, Django's server
+search, Pagefind, and likely others. That is the real cost of the ecosystem,
+and it is why "add Python" is not one adapter.
+
+## Verdict
+
+Python does not pass the same-gate rule as a single ecosystem. A Sphinx-only
+subset would answer 4/5 and could be extended, but calling that "Python
+finished" would be false: the two most prominent frameworks in the sample
+(Django, pydantic) are outside it and need different machinery.
+
+Recommendation: **drop Python as the 0.2 ecosystem.** The next ecosystem must
+expose a Markdown documentation API like pkg.go.dev's; none obvious does. 0.2
+is therefore unassigned, and if no such ecosystem appears it becomes **Go,
+deeper** — close the one remaining benchmark miss (`net/http` timeout) and
+ship 12/12 rather than a second ecosystem that cannot meet the standard.
+
