@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test-matrix": "bun run scripts/test-matrix.ts",
+    "bench": "bun run scripts/bench.ts",
     "inspect": "bunx @modelcontextprotocol/inspector bun run src/index.ts",
     "release": "./scripts/release.sh",
     "deploy": "./scripts/deploy-server.sh"

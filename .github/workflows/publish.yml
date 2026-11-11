@@ -83,6 +83,12 @@ jobs:
           # this repository, and raises the limit to 30.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Benchmark the product
+        run: bun run bench
+        env:
+          FACT_BIN: ${{ github.workspace }}/dist/index.js
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # No NODE_AUTH_TOKEN and no .npmrc: the npm CLI detects the OIDC
       # environment and exchanges it for a short-lived publish credential.
       - name: Publish to npm

@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A twelve-question product benchmark, `bun run bench`. It reports how many
+  answers fit a 1,500-token budget and the median response size at the default
+  budget, and fails when either is worse than `scripts/bench-baseline.json`.
+  CI and the release workflow run it on every change.
 - An offline unit-test suite, run by `bun test`. The repository had none, so
   every check needed a live pkg.go.dev call and the only suite asserted
   substrings of live responses. That is why the defects below shipped green.
@@ -17,6 +21,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A bare name from another ecosystem is refused with that ecosystem named,
+  instead of resolving to a weak same-named Go package. `react` used to return
+  `github.com/rocketlaunchr/react` as if it were the library; it now answers
+  that `react` looks like a JavaScript library (react/react) and that fact
+  covers Go only. The same applies to `django`, `express` and `mongodb`. A Go
+  library with a serious following is unaffected: `zap` still resolves to
+  `uber-go/zap`, which is far larger than the non-Go repository that outranks it.
 - A question is ranked by what it asks for, not only by the words it uses.
   `search(query="how do I create a window")` used to lead with the
   `WindowOptions` struct — the longest section that repeats "window" — because

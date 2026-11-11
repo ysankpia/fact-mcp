@@ -49,6 +49,12 @@ library they already know.
 has at least ten times the stars of the second, it is chosen without asking.
 Below that, the caller gets candidates instead of a guess.
 
+**Unsupported library** — A library whose leading project on GitHub is not
+written in Go, and which no same-named Go repository comes close to. Named in a
+response so a weak Go namesake is not mistaken for the library the caller meant.
+The ten-times margin is the leader rule's, applied across languages.
+_Avoid_: non-Go library, foreign library, unsupported ecosystem.
+
 ## Deployment concepts
 
 **Direct mode** — The default. The client builds bundles itself; no server is

@@ -3,6 +3,9 @@
 **Fact, not memory.** An MCP server that answers library questions from the
 official documentation at request time, instead of from a prebuilt index.
 
+This codebase is yours: what it's for and how it's built are your call, and
+you'll keep building on it.
+
 ## What this is
 
 Two tools over stdio:
@@ -30,7 +33,9 @@ returns Markdown directly.
 | `src/proxy.ts`           | Proxy transport with retry                          |
 | `src/cache.ts`           | In-process LRU, five minute TTL                     |
 | `server/proxy.ts`        | The optional `fact-proxy` orchestrator              |
-| `scripts/test-matrix.ts` | 43 cases covering every tool argument               |
+| `scripts/test-matrix.ts` | 44 cases covering every tool argument               |
+| `scripts/bench.ts`       | Twelve-question product benchmark and its ratchet   |
+| `scripts/harness.ts`     | Build selection and GitHub token for the live scripts |
 | `test/`                  | Offline unit tests and the pkg.go.dev fixture       |
 
 The tool modules take a bundle as an argument and never fetch, so a fixture
@@ -45,6 +50,7 @@ bun run typecheck
 bun run build
 bun test                           # offline unit tests, no network
 bun run test-matrix --delay=6500   # paces only the cases that spend a search
+bun run bench                      # the 12-question product benchmark
 bun run inspect                    # MCP Inspector
 ```
 
