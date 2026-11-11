@@ -11,10 +11,10 @@
  *   bun run scripts/test-matrix.ts --verbose
  */
 
-import { existsSync } from "node:fs";
-
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+
+import { buildCommand, githubToken, harnessEnv } from "./harness.ts";
 
 const args = process.argv.slice(2);
 const filter = args.find((a) => a.startsWith("--filter="))?.split("=")[1];
@@ -31,40 +31,7 @@ const DELAY_MS = Number(
     0,
 );
 
-/**
- * Which build to exercise.
- *
- * `FACT_BIN` wins. Otherwise the working tree's build, because `fact-mcp` on
- * PATH is the published package: testing it after a code change silently
- * proves the old behaviour, which once produced a false "the fix did not
- * work". A bare checkout with no build still falls back to the installed
- * binary so the script runs anywhere.
- */
-const LOCAL_BUILD = new URL("../dist/index.js", import.meta.url).pathname;
-const COMMAND =
-  process.env.FACT_BIN ??
-  (existsSync(LOCAL_BUILD) ? LOCAL_BUILD : "fact-mcp");
-
-/**
- * A GitHub token raises search from 10 to 30 requests a minute and is counted
- * per token rather than per shared IP. Without one, bare-name cases fail
- * intermittently and look like real failures. Reuse the `gh` CLI's token when
- * the environment does not already carry one.
- */
-function githubToken(): string | undefined {
-  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
-  if (typeof Bun === "undefined") return undefined;
-  try {
-    const out = Bun.spawnSync(["gh", "auth", "token"], {
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    return out.success ? out.stdout.toString().trim() || undefined : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
+const COMMAND = buildCommand();
 const TOKEN = githubToken();
 
 interface Case {
@@ -414,6 +381,18 @@ const cases: Case[] = [
         : "unclear miss",
   },
   {
+    name: "search/unsupported-ecosystem",
+    tool: "search",
+    // A JavaScript library whose name also matches a small Go package. The
+    // Go-only search cannot tell them apart; the all-language leader can.
+    args: { library: "react", query: "useEffect" },
+    spendsSearch: true,
+    expect: (t) =>
+      has(t, "looks like a JavaScript library") && has(t, "fact covers Go only")
+        ? null
+        : "non-Go name was not refused",
+  },
+  {
     name: "search/no-args",
     tool: "search",
     args: {},
@@ -687,14 +666,7 @@ console.log(`testing ${COMMAND}${TOKEN ? " (GitHub token from gh)" : " (no GitHu
 const transport = new StdioClientTransport({
   command: COMMAND,
   args: [],
-  env: {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(
-        (e): e is [string, string] => e[1] !== undefined,
-      ),
-    ),
-    ...(TOKEN ? { GITHUB_TOKEN: TOKEN } : {}),
-  },
+  env: harnessEnv(TOKEN),
 });
 const client = new Client({ name: "test-matrix", version: "0.0.0" });
 await client.connect(transport);

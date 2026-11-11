@@ -132,6 +132,12 @@ You can name a library the way you would say it:
 | `github.com/egoist/mygo` | used directly, no search                            |
 | `gorilla/websocket`      | tried as `github.com/gorilla/websocket`             |
 | `encoding/json`          | the standard library                                |
+| `react`                  | refused: it is a JavaScript library                 |
+
+When a bare name's leading project on GitHub is not Go, the answer says which
+ecosystem it belongs to instead of returning a weak same-named Go package.
+Pass a full module path to read a Go package whose name happens to collide with
+a library from another language.
 
 When two libraries share a name and neither clearly wins, `fact` returns the
 candidates with star counts instead of picking one. Ask again with the module
@@ -191,7 +197,8 @@ from stale data.
 ```sh
 bun install
 bun run typecheck
-bun run test-matrix          # 43 cases, every tool argument
+bun run test-matrix          # 44 cases, every tool argument
+bun run bench                # the 12-question product benchmark
 bun run inspect              # MCP Inspector
 ```
 

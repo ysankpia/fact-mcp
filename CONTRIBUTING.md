@@ -29,7 +29,14 @@ bun run typecheck
 bun test
 bun run build
 bun run test-matrix --delay=6500
+bun run bench
 ```
+
+`bench` is twelve real questions measured on two numbers: how many answers fit
+a 1,500-token budget, and the median response size at the default budget. It is
+a ratchet against `scripts/bench-baseline.json`; a change that makes either
+number worse fails. Raise the baseline in the same commit only when a change
+genuinely improves the product.
 
 While you iterate, run `bun test` and `bun run test-matrix --filter=<area>`.
 The unit suite is offline and takes a second; the filter runs the handful of

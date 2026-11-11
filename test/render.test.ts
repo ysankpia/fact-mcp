@@ -22,6 +22,7 @@ import {
   text,
   truncate,
   truncationNote,
+  unresolved,
 } from "../src/render.ts";
 import { sections } from "../src/sections.ts";
 import {
@@ -432,5 +433,29 @@ describe("noMatch", () => {
 describe("CHARS_PER_TOKEN", () => {
   test("is the four-character estimate the token budgets use", () => {
     expect(CHARS_PER_TOKEN).toBe(4);
+  });
+});
+
+describe("unresolved: a library outside Go", () => {
+  test("names the ecosystem and the leading project, and offers the Go form", () => {
+    const out = unresolved("react", "unsupported", [], undefined, {
+      ecosystem: "JavaScript",
+      leader: "react/react",
+    });
+    expect(out.isError).toBeUndefined();
+    const body = out.content[0] as { type: "text"; text: string };
+    expect(body.text).toBe(
+      '"react" looks like a JavaScript library (react/react), not a Go one. fact covers Go only.\n\n' +
+        'If you meant a Go library with that name, pass its module path, for example library="github.com/owner/repo".',
+    );
+  });
+
+  test("falls back to a generic ecosystem when the leader has no language", () => {
+    const out = unresolved("mystery", "unsupported", [], undefined, {
+      ecosystem: "another language",
+      leader: "someone/mystery",
+    });
+    const body = out.content[0] as { type: "text"; text: string };
+    expect(body.text).toContain("looks like another language library");
   });
 });

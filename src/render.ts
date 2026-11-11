@@ -12,7 +12,7 @@
 
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
-import type { GoBundle, GoModule } from "./orchestrator.ts";
+import type { GoBundle, GoModule, Unsupported } from "./orchestrator.ts";
 import type { Section } from "./sections.ts";
 
 /**
@@ -375,7 +375,21 @@ export function unresolved(
   via: string,
   candidates: string[],
   error?: string,
+  unsupported?: Unsupported,
 ) {
+  // A name whose leading project is not Go is a coverage boundary, not a
+  // failure: the caller can still ask about a Go library, and should be told
+  // which one it was.
+  if (via === "unsupported") {
+    const ecosystem = unsupported?.ecosystem ?? "another language";
+    const article = ecosystem.startsWith("another ") ? "" : "a ";
+    const leader = unsupported?.leader ? ` (${unsupported.leader})` : "";
+    return text(
+      `"${name}" looks like ${article}${ecosystem} library${leader}, not a Go one. fact covers Go only.\n\n` +
+        `If you meant a Go library with that name, pass its module path, for example library="github.com/owner/repo".`,
+    );
+  }
+
   // An upstream rejection: a version that does not exist is the common one.
   if (via === "error") {
     const notFound = error?.includes("404");
@@ -396,7 +410,7 @@ export function unresolved(
         ? `\n\nCandidates from the Go index:\n\n${candidates.join("\n")}`
         : "";
     return failure(
-      `Name lookup is rate-limited right now (GitHub search allows 10 requests a minute without a token). ` +
+      `Name lookup is rate-limited right now: GitHub's search API is throttling requests. ` +
         `Retry in a minute, or pass a full module path such as library="github.com/egoist/mygo" to skip the lookup.${known}`,
     );
   }

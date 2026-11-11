@@ -119,6 +119,34 @@ interface Repo {
   fullName: string;
   stars: number;
   description: string;
+  language: string | null;
+}
+
+/** The fields of a repository the foreign-library check needs. */
+export interface Leader {
+  language?: string | null;
+  stars: number;
+}
+
+/**
+ * Whether a bare name denotes a library outside Go.
+ *
+ * A Go-only search cannot see that "react" is a JavaScript project before it
+ * is a Go package, so this compares the name's leading repository across all
+ * languages with its best same-named Go repository. The threshold mirrors the
+ * leader rule: the Go library must be a serious contender (within ten times
+ * the leader's stars) or the name belongs to the other ecosystem. `zap`
+ * survives because `uber-go/zap` is far larger than the Batchfile repository
+ * that outranks it.
+ */
+export function isForeignLibrary(
+  bestGoStars: number | undefined,
+  leader: Leader,
+): boolean {
+  if (!leader.language) return false;
+  if (leader.language.toLowerCase() === "go") return false;
+  if (bestGoStars === undefined) return true;
+  return bestGoStars * 10 <= leader.stars;
 }
 
 export interface Candidate {
@@ -142,6 +170,8 @@ export interface GoBundle {
   };
   docsError?: string;
   candidates?: Candidate[];
+  /** Present when the name belongs to an ecosystem other than Go. */
+  unsupported?: Unsupported;
 }
 
 export interface BundleRequest {
@@ -253,10 +283,17 @@ const getPackageDoc = (path: string, version?: string) => {
   return getJSON<PackageDoc>(url.toString());
 };
 
-/** GitHub repository search ranked by stars. */
-async function searchRepos(name: string, limit = 8): Promise<Repo[]> {
+/** GitHub repository search ranked by stars, optionally limited to one language. */
+async function searchRepos(
+  name: string,
+  limit = 8,
+  language: string | null = "go",
+): Promise<Repo[]> {
   const url = new URL(`${GITHUB_API}/search/repositories`);
-  url.searchParams.set("q", `${name} in:name language:go`);
+  url.searchParams.set(
+    "q",
+    `${name} in:name${language ? ` language:${language}` : ""}`,
+  );
   url.searchParams.set("sort", "stars");
   url.searchParams.set("order", "desc");
   url.searchParams.set("per_page", String(Math.max(limit, 10)));
@@ -287,6 +324,7 @@ async function searchRepos(name: string, limit = 8): Promise<Repo[]> {
       full_name: string;
       stargazers_count: number;
       description: string | null;
+      language: string | null;
       fork: boolean;
       archived: boolean;
     }[];
@@ -298,6 +336,7 @@ async function searchRepos(name: string, limit = 8): Promise<Repo[]> {
       fullName: i.full_name,
       stars: i.stargazers_count,
       description: i.description ?? "",
+      language: i.language ?? null,
     }))
     .slice(0, limit);
 }
@@ -313,10 +352,19 @@ async function searchGoIndex(q: string) {
   return data.items ?? [];
 }
 
+/** A bare name whose leading project belongs to another ecosystem. */
+export interface Unsupported {
+  /** The leader's language, e.g. "JavaScript". */
+  ecosystem: string;
+  /** The leading repository, e.g. "react/react". */
+  leader: string;
+}
+
 interface ResolveResult {
   module?: GoModule;
   via: string;
   candidates?: Candidate[];
+  unsupported?: Unsupported;
 }
 
 /**
@@ -355,8 +403,11 @@ async function resolve(name: string, version?: string): Promise<ResolveResult> {
   if (memoized) return memoized;
 
   const result = await resolveUncached(name, version);
-  // Only cache a real answer: a rate limit is transient and must not stick.
-  if (result.module || result.via === "ambiguous") memoSet(memoKey, result);
+  // Cache real answers and stable decisions: a rate limit is transient and
+  // must not stick. A foreign-library verdict is stable for the same reason an
+  // ambiguous one is — the repositories do not change between two calls.
+  if (result.module || result.via === "ambiguous" || result.via === "unsupported")
+    memoSet(memoKey, result);
   return result;
 }
 
@@ -406,6 +457,36 @@ async function resolveUncached(
       (r.fullName.split("/").pop() ?? "").toLowerCase() === name.toLowerCase(),
   );
   const pool = exact.length > 0 ? exact : repos;
+
+  // A bare name may denote another ecosystem's library. The Go-only search
+  // cannot see that — "react" also names a small Go package — so ask once what
+  // the name's leading project is. A failed check must not block a legitimate
+  // Go lookup, so it falls through to the result below.
+  //
+  // The check costs a second search, so it runs only when the Go match is
+  // weak: no same-named repository, or one small enough that it could be the
+  // coincidental namesake. A Go library with a thousand stars is what the
+  // caller meant; spending a search to confirm that would exhaust the rate
+  // limit on ordinary lookups.
+  const STRONG_GO_MATCH_STARS = 1000;
+  const bestGo =
+    exact.length > 0 ? Math.max(...exact.map((r) => r.stars)) : undefined;
+  if (bestGo === undefined || bestGo < STRONG_GO_MATCH_STARS) {
+    try {
+      const [leader] = await searchRepos(name, 1, null);
+      if (leader && isForeignLibrary(bestGo, leader)) {
+        return {
+          via: "unsupported",
+          unsupported: {
+            ecosystem: leader.language ?? "another language",
+            leader: leader.fullName,
+          },
+        };
+      }
+    } catch {
+      // Carry on: an unchecked name is not a foreign name.
+    }
+  }
 
   if (pool.length > 0) {
     const verified = await Promise.all(
@@ -520,6 +601,7 @@ export async function buildBundle(req: BundleRequest): Promise<GoBundle> {
       versions: [],
       packages: [],
       candidates: resolved.candidates ?? [],
+      unsupported: resolved.unsupported,
     };
   }
 

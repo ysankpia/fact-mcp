@@ -52,6 +52,16 @@ jobs:
           # this repository, and raises the limit to 30.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The product benchmark: does the answer fit a 1,500-token budget, and
+      # how large is the response at the default budget. It is a ratchet
+      # against `scripts/bench-baseline.json`; the absolute target lands with
+      # the slicing work, not by tuning the baseline.
+      - name: Benchmark the product
+        run: bun run bench
+        env:
+          FACT_BIN: ${{ github.workspace }}/dist/index.js
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   standards:
     runs-on: ubuntu-latest
     steps:

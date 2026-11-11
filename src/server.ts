@@ -14,6 +14,7 @@ import {
   goBundle,
   type GoModule,
 } from "./go.ts";
+import type { Unsupported } from "./orchestrator.ts";
 import type { ResolvedBundle } from "./render.ts";
 import { unresolved } from "./render.ts";
 import { getDocs } from "./tools-get.ts";
@@ -40,7 +41,13 @@ async function resolveBundle(
   want: "overview" | "docs" = "docs",
 ): Promise<
   | { ok: true; value: Resolved }
-  | { ok: false; candidates: string[]; via: string; error?: string }
+  | {
+      ok: false;
+      candidates: string[];
+      via: string;
+      error?: string;
+      unsupported?: Unsupported;
+    }
 > {
   let bundle;
   try {
@@ -57,6 +64,7 @@ async function resolveBundle(
       ok: false,
       via: bundle.via,
       candidates: candidateLines(bundle),
+      unsupported: bundle.unsupported,
     };
   }
 
@@ -134,7 +142,14 @@ export function createServer(): McpServer {
       if (!plan) return missingInput();
 
       const r = await resolveBundle(plan.name, version, undefined, plan.want);
-      if (!r.ok) return unresolved(plan.name, r.via, r.candidates, r.error);
+      if (!r.ok)
+        return unresolved(
+          plan.name,
+          r.via,
+          r.candidates,
+          r.error,
+          r.unsupported,
+        );
 
       return searchDocs(args, r.value.bundle);
     },
@@ -183,7 +198,14 @@ export function createServer(): McpServer {
       };
 
       const r = await resolveBundle(library, version, page, "docs");
-      if (!r.ok) return unresolved(library, r.via, r.candidates, r.error);
+      if (!r.ok)
+        return unresolved(
+          library,
+          r.via,
+          r.candidates,
+          r.error,
+          r.unsupported,
+        );
 
       return getDocs(args, r.value.bundle);
     },
