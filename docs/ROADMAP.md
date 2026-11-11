@@ -1,14 +1,21 @@
 # Roadmap
 
-**This project is Go-only, and that is a decision, not a stage.** A second
-ecosystem would need an official, structured documentation API that answers in
-seconds — the same shape pkg.go.dev gives Go. Two candidates were measured and
-neither qualifies: Rust's docs.rs ships megabytes of JSON per crate (15–37 s
-per call), and Python has no single source at all. The evidence is in
-[research/python-docs-sources.md](research/python-docs-sources.md) and on the
-unmerged branch `feat/rust-prototype`.
+**This project is in maintenance mode.** 0.1.3 is the last feature release:
+bug fixes and dependency updates only. The reason is demand, not quality —
+[was-it-worth-building.md](research/was-it-worth-building.md) records the
+measurement, including the parts that argue against continuing.
 
-One rule decides every version: **a release ships only when it moves a measured
+**It is Go-only, and that is a decision, not a stage.** A second ecosystem would
+need an official, structured documentation API that answers in seconds — the
+same shape pkg.go.dev gives Go. Two candidates were measured and neither
+qualifies: Rust's docs.rs ships megabytes of JSON per crate (15–37 s per call),
+and Python has no single source at all. The evidence is in
+[research/python-docs-sources.md](research/python-docs-sources.md) and on the
+unmerged branch `feat/rust-prototype`. JavaScript is the only ecosystem whose
+sources are ready ([llms.txt coverage](research/llms-txt-coverage.md)), and it
+is not being built.
+
+One rule decided every release: **a release ships only when it moves a measured
 number.** The numbers are whether the answer fits inside a token budget, and how
 large the response is.
 
@@ -58,6 +65,22 @@ create a window", …) against the packages that answer them:
 0.1 is complete at 0.1.3. 0.1.2 shipped the benchmark gate and the
 cross-ecosystem refusal; 0.1.3 shipped snippets and field lookup, and passed
 the gate above. Further 0.1 patches are for regressions, not new scope.
+
+## Maintenance mode
+
+**No new features.** The reason is in
+[was-it-worth-building.md](research/was-it-worth-building.md): in the session
+that built this, `fact` was called 6 times across 657 tool calls, Context7's MCP
+server has ~326 万 monthly downloads against this one's 382, and `gopls` already
+answers type questions locally. The demand case is unproven, and further
+supply-side work would optimise an unvalidated premise.
+
+What stays: bug fixes, dependency updates, and the published 0.1.3 artifact.
+
+**The test that would end maintenance mode.** For two weeks, record every moment
+you want to look up a Go API and where it happened. If it happened inside an
+agent with no editor — this tool's only case — 10 or more times, resume work. If
+fewer than 3, archive the repository with a pointer to that document.
 
 ## 0.2 — not planned
 

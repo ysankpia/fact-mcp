@@ -211,10 +211,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ## Roadmap
 
-`fact` is Go-only by decision: a second ecosystem needs an official, structured
-documentation API that answers in seconds, and the candidates measured so far do
-not have one. The measurements, and what the project deliberately will not do,
-are in [docs/ROADMAP.md](docs/ROADMAP.md).
+`fact` is **in maintenance mode**: 0.1.3 is the last feature release, and only
+bug fixes and dependency updates follow. It is Go-only by decision — a second
+ecosystem needs an official, structured documentation API that answers in
+seconds, and the candidates measured so far do not have one.
+
+The measurements, the honest case against continuing, and the two-week test that
+would change the decision are in
+[docs/research/was-it-worth-building.md](docs/research/was-it-worth-building.md).
+The plan itself is [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 
