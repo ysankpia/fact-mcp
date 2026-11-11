@@ -91,6 +91,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no-match response satisfied them, so they proved nothing about the behaviour
   they were named for. Each now requires the API it names, and each was checked
   against a no-match response to confirm it rejects it.
+- A bare name no longer resolves to the wrong module when one candidate's
+  lookup fails. pkg.go.dev verification used to drop a candidate on any error,
+  so a dropped connection while checking the best match left the next-best
+  repository as the only survivor, and it was returned as the answer. A
+  connection failure or 5xx is now retried, and a candidate that still cannot
+  be checked fails the lookup instead of silently substituting another module.
 
 ## [0.1.1] - 2026-11-11
 

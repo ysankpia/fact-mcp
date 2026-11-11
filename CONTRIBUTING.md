@@ -31,11 +31,18 @@ bun run build
 bun run test-matrix --delay=6500
 ```
 
-`bun test` runs the offline unit suite against a committed pkg.go.dev fixture,
-so it needs no network and takes a second. `test-matrix` needs network access.
-The `--delay` flag spaces the calls out because bare-name resolution spends one
-GitHub search per new name, and the unauthenticated limit is 10 a minute. Set
-`GITHUB_TOKEN` to raise it to 30.
+While you iterate, run `bun test` and `bun run test-matrix --filter=<area>`.
+The unit suite is offline and takes a second; the filter runs the handful of
+cases you touched instead of all of them. Run the full matrix once, before you
+open the pull request: a full run is several minutes of live network calls, and
+repeating it after every edit proves little that the filtered run did not.
+
+`test-matrix` exercises the working tree's `dist/index.js` when it exists, and
+falls back to `fact-mcp` on your PATH otherwise — the published package, which
+does not contain your change. It also reads a GitHub token from `gh auth token`
+when `GITHUB_TOKEN` is unset, because bare-name resolution spends one search per
+new name and the unauthenticated limit is 10 a minute. Override the build under
+test with `FACT_BIN=<path>`.
 
 If a test fails because a library changed upstream rather than because your
 change broke something, say so in the pull request and update the assertion.
@@ -64,6 +71,14 @@ Releases do not go through a pull request: a `v*` tag publishes to npm and
 opens a GitHub Release, as described in `AGENTS.md`.
 
 ## What makes a good change
+
+**A measurement you can defend.** An acceptance criterion must name the outcome
+a caller experiences: the answer is in the response, the response fits the
+budget, the miss is reported. An internal rank or score can guide the work, but
+it is a diagnostic, not a gate. This project spent two pull requests optimizing
+the position of an answer within a response before noticing that an agent reads
+the whole response, so position changed nothing. State the outcome, measure it,
+and let the diagnostic sit beside it.
 
 **Adding a language.** This is the most useful contribution. Create an adapter
 next to `src/orchestrator.ts` that exposes the same shape:

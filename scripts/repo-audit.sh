@@ -418,6 +418,33 @@ else
   warn "missing: a workflow that runs the repo audit (templates/standards.yml)"
 fi
 
+# ---------- test matrix ----------
+section "test matrix"
+matrix=scripts/test-matrix.ts
+if [ -f "$matrix" ]; then
+  cases=$(grep -cE '^ +name: "' "$matrix" 2>/dev/null || true)
+  if [ "${cases:-0}" -gt 0 ]; then
+    ok "$cases cases"
+    # The count is written in the docs, and a stale count is a doc bug that no
+    # other check sees. Compare instead of trusting the prose.
+    for doc in README.md AGENTS.md; do
+      [ -f "$doc" ] || continue
+      stated=$(grep -oE '[0-9]+ cases' "$doc" | head -1 | awk '{print $1}')
+      if [ -z "$stated" ]; then
+        warn "$doc does not state the case count"
+      elif [ "$stated" != "$cases" ]; then
+        miss "$doc says $stated cases; $matrix has $cases"
+      else
+        ok "$doc states $cases cases"
+      fi
+    done
+  else
+    miss "$matrix has no cases"
+  fi
+else
+  miss "$matrix"
+fi
+
 # ---------- git hygiene ----------
 section "git hygiene"
 check ".gitattributes" have .gitattributes

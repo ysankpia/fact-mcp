@@ -39,17 +39,35 @@ function githubToken(): string {
  * clears almost every occurrence.
  */
 async function getJSON<T>(url: string, attempt = 1): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "user-agent": USER_AGENT, accept: "application/json" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "user-agent": USER_AGENT, accept: "application/json" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // A dropped connection or timeout is the network, not the answer. One
+    // retry is enough to separate the two; without it a transient failure
+    // looks like "this module does not exist" to every caller.
+    if (attempt <= 2) {
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      return getJSON<T>(url, attempt + 1);
+    }
+    throw error;
+  }
 
   if (res.status === 429 && attempt <= 2) {
     const header = Number(res.headers.get("retry-after") ?? 0);
     const wait =
       Number.isFinite(header) && header > 0 ? header * 1000 : 800 * attempt;
     await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 5000)));
+    return getJSON<T>(url, attempt + 1);
+  }
+
+  // A 5xx is upstream being briefly unavailable, not a missing module.
+  if (res.status >= 500 && attempt <= 2) {
+    await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
     return getJSON<T>(url, attempt + 1);
   }
 
@@ -398,8 +416,21 @@ async function resolveUncached(
             version,
           );
           return { repo, module };
-        } catch {
-          return null;
+        } catch (error) {
+          // A 400 or 404 means this repository is not a Go module at that
+          // path: it is not a candidate, and dropping it is correct.
+          if (
+            error instanceof UpstreamError &&
+            (error.status === 404 || error.status === 400)
+          ) {
+            return null;
+          }
+          // Anything else means the candidate could not be checked. Dropping
+          // it would leave an incomplete set, and the leader rule would then
+          // answer with a worse module as if the better one did not exist —
+          // a wrong answer presented as fact. Fail instead, and let the
+          // caller retry.
+          throw error;
         }
       }),
     );
