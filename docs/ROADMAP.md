@@ -1,14 +1,16 @@
 # Roadmap
 
-One rule decides every version here: **an ecosystem ships only when it is
-finished to the same standard as the one before it.** A version number marks
-completed work, not started work. Go is finished before Python begins; Python
-is finished before a third ecosystem begins.
+**This project is Go-only, and that is a decision, not a stage.** A second
+ecosystem would need an official, structured documentation API that answers in
+seconds — the same shape pkg.go.dev gives Go. Two candidates were measured and
+neither qualifies: Rust's docs.rs ships megabytes of JSON per crate (15–37 s
+per call), and Python has no single source at all. The evidence is in
+[research/python-docs-sources.md](research/python-docs-sources.md) and on the
+unmerged branch `feat/rust-prototype`.
 
-The standard is measured, not felt: a fixed set of real developer questions,
-run against real documentation, with **whether the answer fits inside a token
-budget** and **how large that response is** as the numbers. A release that does
-not move one of those numbers does not need to exist.
+One rule decides every version: **a release ships only when it moves a measured
+number.** The numbers are whether the answer fits inside a token budget, and how
+large the response is.
 
 Position within the response is a diagnostic, not a gate. The reader is an agent
 that reads the whole answer, so an answer at rank 5 costs the same as one at
@@ -57,41 +59,50 @@ create a window", …) against the packages that answer them:
 cross-ecosystem refusal; 0.1.3 shipped snippets and field lookup, and passed
 the gate above. Further 0.1 patches are for regressions, not new scope.
 
-## 0.2 — unassigned
+## 0.2 — not planned
 
-Same gate, same thresholds. **Python is dropped as the 0.2 ecosystem.**
+**This project is Go-only.** A second ecosystem needs two properties, and no
+candidate has both:
 
-The source comparison and a throwaway prototype are recorded in
-[research/python-docs-sources.md](research/python-docs-sources.md). In short:
-PyPI descriptions answered 4/9 questions, repository READMEs 3/9, documentation
-landing pages 1/9. A Sphinx search-index path answered 4/5 of its questions, but
-Django needs server-rendered HTML and pydantic uses Pagefind, a WASM-backed
-index. That is a collection of per-site scrapers, not one ecosystem adapter;
-calling a Sphinx-only subset "Python finished" would be false.
+| Candidate | Source | Answers | Median | **Per call** |
+| --- | --- | --- | --- | --- |
+| Go (shipped) | pkg.go.dev Markdown | 12/12 | ~1,470 tok | **1–3 s** |
+| Rust (prototype) | docs.rs rustdoc JSON, zstd | 8/9 | ~1,434 tok | **15–37 s** |
+| Python (prototype) | PyPI / README / Sphinx | 4/9 single fetch, 4/5 Sphinx | — | — |
 
-The next ecosystem must expose a Markdown documentation API like pkg.go.dev's.
-None obvious does. If none appears, 0.2 becomes **Go, deeper**: close the one
-remaining benchmark miss (`net/http` timeout, a field on `Server`) and ship
-12/12 rather than a second ecosystem that cannot meet the standard. This is a
-decision for the next session, not a build in progress.
+Rust has a real structured API and would pass the token gate, but each crate
+ships 85 KB–475 KB of compressed JSON (1.4–3.2 MB decompressed) against
+pkg.go.dev's tens of kilobytes of Markdown, so every call costs 15–37 seconds.
+Python has no single source: PyPI descriptions are READMEs, and Django, Sphinx
+and Pagefind each need their own scraper.
 
-## 0.3 and later — more ecosystems
+The prototype lives on the local branch `feat/rust-prototype`, unmerged, as the
+evidence for this decision. The measurements are in
+[research/python-docs-sources.md](research/python-docs-sources.md).
 
-Candidates, unscheduled. Each is a `0.x` release that ships finished by the same
-gate. The order follows demand, not ease.
+**The bar for a second ecosystem:** an official, structured documentation API
+that answers in seconds, like pkg.go.dev. Anything less trades a 10× latency
+increase for languages this project's users do not write. If such a source
+appears, it gets the same gate; until then 0.2 does not exist.
 
 ## Not doing
 
+- **A second ecosystem without such a source.** See above.
 - **An index or a prebuilt corpus.** Answers are read from the source at request
   time. That includes repository `docs/*.md` guides: they answer "how do I"
   better than API reference does, but indexing them is a different product.
   [The Context7 comparison](research/context7-comparison.md) records why that
-  corpus, not semantic search, is what an index would buy.
+  corpus, not semantic search, is what an index would buy. Several projects
+  already occupy that space (Context7, DeepWiki, GitMCP, Grounded Docs); this
+  one's only unique asset is Go API-reference depth.
 - **Writing to disk.** The only cache is in process memory, and it expires.
 - **Hosted proxies or distribution.** The proxy stays optional and self-hosted;
   users configure their own. No accounts, no keys.
 - **Answering for ecosystems that have not shipped.** A refusal is better than
   a plausible wrong answer from another language.
+- **HTML scraping as a general path.** Converting HTML to Markdown works
+  (measured), but discovery — which page, which version — stays per-site. Filed
+  as #25 for the day a specific library needs it.
 
 ## How a release works
 

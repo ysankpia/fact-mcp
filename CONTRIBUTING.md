@@ -87,15 +87,18 @@ the position of an answer within a response before noticing that an agent reads
 the whole response, so position changed nothing. State the outcome, measure it,
 and let the diagnostic sit beside it.
 
-**Adding a language.** This is the most useful contribution. Create an adapter
-next to `src/orchestrator.ts` that exposes the same shape:
+**Adding a language.** Only worth doing when the ecosystem publishes an
+official, structured documentation API that answers in seconds — pkg.go.dev is
+the model. A new adapter exposes the same shape:
 
 ```ts
 buildBundle({ name, version, page, want }): Promise<Bundle>
 ```
 
-Then route to it by ecosystem. The tools, caching and resolution logic are
-already ecosystem-neutral, so nothing else needs to change.
+and routes by ecosystem; the tools, caching and resolution logic are already
+ecosystem-neutral. Read [docs/ROADMAP.md](docs/ROADMAP.md) first: Rust and
+Python were measured and rejected, with the numbers, and a contribution that
+scrapes HTML per site will be declined for the same reason.
 
 **Improving resolution.** If a library resolves to the wrong module, the useful
 report includes the name you typed, what came back, and what you expected.
