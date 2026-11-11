@@ -11,6 +11,8 @@
  *   bun run scripts/test-matrix.ts --verbose
  */
 
+import { existsSync } from "node:fs";
+
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -28,7 +30,42 @@ const DELAY_MS = Number(
     process.env.TEST_DELAY_MS ??
     0,
 );
-const COMMAND = process.env.FACT_BIN ?? "fact-mcp";
+
+/**
+ * Which build to exercise.
+ *
+ * `FACT_BIN` wins. Otherwise the working tree's build, because `fact-mcp` on
+ * PATH is the published package: testing it after a code change silently
+ * proves the old behaviour, which once produced a false "the fix did not
+ * work". A bare checkout with no build still falls back to the installed
+ * binary so the script runs anywhere.
+ */
+const LOCAL_BUILD = new URL("../dist/index.js", import.meta.url).pathname;
+const COMMAND =
+  process.env.FACT_BIN ??
+  (existsSync(LOCAL_BUILD) ? LOCAL_BUILD : "fact-mcp");
+
+/**
+ * A GitHub token raises search from 10 to 30 requests a minute and is counted
+ * per token rather than per shared IP. Without one, bare-name cases fail
+ * intermittently and look like real failures. Reuse the `gh` CLI's token when
+ * the environment does not already carry one.
+ */
+function githubToken(): string | undefined {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  if (typeof Bun === "undefined") return undefined;
+  try {
+    const out = Bun.spawnSync(["gh", "auth", "token"], {
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    return out.success ? out.stdout.toString().trim() || undefined : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const TOKEN = githubToken();
 
 interface Case {
   name: string;
@@ -61,13 +98,6 @@ const headings = (text: string) =>
     .split("\n")
     .filter((line) => line.startsWith("### "))
     .map((line) => line.slice(4));
-
-/**
- * Every section a response carries, split the way an agent reads it: one
- * `### ` chunk per section. A heading the response does not render as `###`
- * (a `##` group) has no declaration of its own and is not a section here.
- */
-const sectionChunks = (text: string) => text.split("\n### ").slice(1);
 
 /**
  * What a topic must do: keep every section the query returned, and move the
@@ -653,14 +683,18 @@ if (selected.length === 0) {
   process.exit(1);
 }
 
+console.log(`testing ${COMMAND}${TOKEN ? " (GitHub token from gh)" : " (no GitHub token)"}`);
 const transport = new StdioClientTransport({
   command: COMMAND,
   args: [],
-  env: Object.fromEntries(
-    Object.entries(process.env).filter(
-      (e): e is [string, string] => e[1] !== undefined,
+  env: {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        (e): e is [string, string] => e[1] !== undefined,
+      ),
     ),
-  ),
+    ...(TOKEN ? { GITHUB_TOKEN: TOKEN } : {}),
+  },
 });
 const client = new Client({ name: "test-matrix", version: "0.0.0" });
 await client.connect(transport);
@@ -668,7 +702,20 @@ await client.connect(transport);
 let pass = 0;
 const failures: string[] = [];
 
-for (const c of selected) {
+/** A failure that usually clears on its own: the network, not the code. */
+const isTransient = (note: string) =>
+  /fetch failed|ECONNRESET|socket|HTTP 5\d\d|429|rate-limited|timed out/i.test(
+    note,
+  );
+
+interface Outcome {
+  ok: boolean;
+  note: string;
+  text: string;
+  ms: number;
+}
+
+async function runCase(c: Case): Promise<Outcome> {
   const started = Date.now();
   let ok = true;
   let note = "";
@@ -718,14 +765,35 @@ for (const c of selected) {
     note = `threw: ${String(error).slice(0, 160)}`;
   }
 
-  const ms = Date.now() - started;
-  const mark = ok ? "PASS" : "FAIL";
-  console.log(
-    `${mark}  ${String(ms).padStart(6)}ms  ${c.name}${note ? `  <- ${note}` : ""}`,
-  );
-  if (verbose || !ok) console.log(`        ${excerpt(text)}`);
+  return { ok, note, text, ms: Date.now() - started };
+}
 
-  if (ok) pass++;
+for (const c of selected) {
+  let outcome = await runCase(c);
+  // Upstream pkg.go.dev and GitHub both drop connections under load. One
+  // retry separates that from a real failure; without it the matrix reports
+  // red for the network and the distinction is lost. The response text is
+  // checked too: an expected-error case whose message says "HTTP 500" is a
+  // flaky upstream, not a wrong error message.
+  let retried = false;
+  if (
+    !outcome.ok &&
+    (isTransient(outcome.note) || isTransient(outcome.text))
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    outcome = await runCase(c);
+    retried = true;
+  }
+
+  const mark = outcome.ok ? "PASS" : "FAIL";
+  const retryNote =
+    retried && outcome.ok ? "  (retried after a transient failure)" : "";
+  console.log(
+    `${mark}  ${String(outcome.ms).padStart(6)}ms  ${c.name}${outcome.note ? `  <- ${outcome.note}` : ""}${retryNote}`,
+  );
+  if (verbose || !outcome.ok) console.log(`        ${excerpt(outcome.text)}`);
+
+  if (outcome.ok) pass++;
   else failures.push(c.name);
 
   if (DELAY_MS > 0 && c.spendsSearch)

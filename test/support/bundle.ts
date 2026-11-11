@@ -7,7 +7,7 @@
 
 import { readFileSync } from "node:fs";
 
-import type { GoBundle, GoModule } from "../../src/orchestrator.ts";
+import type { GoModule } from "../../src/orchestrator.ts";
 import type { ResolvedBundle } from "../../src/render.ts";
 
 export const FIXTURE_MARKDOWN = readFileSync(

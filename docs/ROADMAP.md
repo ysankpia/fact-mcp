@@ -101,6 +101,8 @@ gate. The order follows demand, not ease.
 - **An index or a prebuilt corpus.** Answers are read from the source at request
   time. That includes repository `docs/*.md` guides: they answer "how do I"
   better than API reference does, but indexing them is a different product.
+  [The Context7 comparison](research/context7-comparison.md) records why that
+  corpus, not semantic search, is what an index would buy.
 - **Writing to disk.** The only cache is in process memory, and it expires.
 - **Hosted proxies or distribution.** The proxy stays optional and self-hosted;
   users configure their own. No accounts, no keys.
