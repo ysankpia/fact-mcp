@@ -86,6 +86,32 @@ export function getDocs(args: GetArgs, bundle: ResolvedBundle) {
     );
   }
 
+  // A field is not a declaration of its own: it lives inside its type's code
+  // block. `get(Type.Field)` reads it from there, which is the only way to
+  // answer "what is this field's default" without sending the whole struct.
+  // A name that is not a field falls through to the declaration miss below,
+  // which points at the same-named methods the caller may have meant.
+  if (want.receiver) {
+    const typeSection = all.find(
+      (section) =>
+        section.kind === "type" &&
+        section.name.toLowerCase() === want.receiver!.toLowerCase(),
+    );
+    if (typeSection) {
+      const field = fieldBlock(typeSection, want.name);
+      if (field) {
+        return text(
+          fitToBudget(
+            headerText,
+            field,
+            maxChars,
+            "Raise max_tokens to read the rest.",
+          ),
+        );
+      }
+    }
+  }
+
   if (found.suggestions.length > 0) {
     return text(
       fitToBudget(
@@ -213,6 +239,45 @@ function symbolOf(section: Section): string {
   return section.receiver
     ? `${section.receiver}.${section.name}`
     : section.name;
+}
+
+/**
+ * A field inside a type's code block, with the comment lines that document it.
+ *
+ * Returns the field's markdown, or `undefined` when the section has no code
+ * block or no such field. A field line alone often says nothing about the
+ * default or the units, so its doc comment is taken along.
+ */
+function fieldBlock(section: Section, field: string): string | undefined {
+  const lines = section.body.split("\n");
+  const open = lines.findIndex((line) => line.trim().startsWith("```go"));
+  if (open === -1) return undefined;
+  const close = lines.findIndex(
+    (line, index) => index > open && line.trim() === "```",
+  );
+  const code = lines.slice(open + 1, close === -1 ? lines.length : close);
+  if (code.length < 2) return undefined;
+
+  const body = code.slice(1, -1);
+  let at = -1;
+  for (let index = 0; index < body.length; index++) {
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\b/.exec(body[index]);
+    if (match && match[1].toLowerCase() === field.toLowerCase()) {
+      at = index;
+      break;
+    }
+  }
+  if (at === -1) return undefined;
+
+  let start = at;
+  while (start > 0 && body[start - 1].trim().startsWith("//")) start--;
+  const fieldName = body[at].trim().split(/\s+/)[0];
+  const kept = [
+    code[0].trimEnd(),
+    ...body.slice(start, at + 1).map((line) => line.trimEnd()),
+    code[code.length - 1].trimEnd(),
+  ];
+  return `### ${section.name}.${fieldName} (field)\n\n\`\`\`go\n${kept.join("\n")}\n\`\`\``;
 }
 
 /**

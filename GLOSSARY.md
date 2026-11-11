@@ -32,6 +32,15 @@ on headings. A section carries its `name`, `kind` and, for a method, its
 **Declaration** — A single `type`, `func`, `const` or `var` in a Go package, as
 it appears in one fenced block. What `get` returns when given a `symbol`.
 
+**Snippet** — The part of a section a search returns: the declaration line, the
+lines around the query match with their comments, and the paragraph that
+mentions it. A section small enough to answer economically is sent whole.
+`get` on a named declaration still returns the whole declaration.
+
+**Field** — A named member inside a type's code block. Not a declaration of its
+own, so `get(Type.Field)` reads it from the type and returns it with the doc
+comment above it.
+
 ## Resolution concepts
 
 **Bare name** — A library named the way a person says it (`mygo`), with no host

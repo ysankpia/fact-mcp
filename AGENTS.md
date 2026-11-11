@@ -25,6 +25,7 @@ returns Markdown directly.
 | `src/version.ts`         | The reported version, read from `package.json`      |
 | `src/sections.ts`        | Splitting pkg.go.dev Markdown into sections         |
 | `src/rank.ts`            | Tokenising a query and scoring sections against it  |
+| `src/snippet.ts`         | Slicing a section to the part that answers a query  |
 | `src/render.ts`          | Response assembly, truncation, headers and overviews |
 | `src/tools-search.ts`    | The `search` tool body, taking an already-built bundle |
 | `src/tools-get.ts`       | The `get` tool body, taking an already-built bundle |

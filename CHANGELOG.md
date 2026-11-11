@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `search` returns snippets rather than whole declarations: the declaration
+  line, the lines around the match with their comments, and the paragraph that
+  mentions the query. A struct can be thousands of characters while the answer
+  is one field — `WindowOptions` is 8,619 characters and `Transparent` is 72.
+  The default search budget drops from 3,000 to 1,500 tokens. On the benchmark,
+  answers inside 1,500 tokens rose from 10/12 to 11/12, and the median response
+  at the default budget fell from ~2,980 to ~1,470 tokens.
+- `get(symbol="Type.Field")` returns a field and the doc comment above it. It
+  used to miss, because a field lives inside its type's code block rather than
+  being a declaration of its own.
+
 ## [0.1.2] - 2026-11-11
 
 ### Added

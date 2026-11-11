@@ -118,7 +118,7 @@ export function createServer(): McpServer {
           .max(20000)
           .optional()
           .describe(
-            "Response budget. Default 3000, which covers the answer for a typical question; raise it to read more of the page.",
+            "Response budget. Default 1500, which holds the answer at the current granularity; raise it to read more of the page.",
           ),
       }),
     },
@@ -128,7 +128,7 @@ export function createServer(): McpServer {
         library,
         version,
         topic,
-        max_tokens: max_tokens ?? 3000,
+        max_tokens: max_tokens ?? 1500,
       };
 
       const queryText = (query ?? "").trim();
