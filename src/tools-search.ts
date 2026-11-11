@@ -177,6 +177,7 @@ export function searchDocs(args: SearchArgs, bundle: ResolvedBundle) {
       ordered.map((entry) => entry.section),
       maxChars,
       nextStep,
+      terms,
     ),
   );
 }

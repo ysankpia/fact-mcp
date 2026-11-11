@@ -338,3 +338,39 @@ describe("get: a package with no godoc text", () => {
     expect(out).toContain("Fetch failed: HTTP 500");
   });
 });
+
+describe("get: a field inside a type", () => {
+  test("Type.Field returns the field and its doc comment, not the whole struct", () => {
+    const out = body(
+      getDocs(
+        {
+          library: "mygo",
+          symbol: "WindowOptions.Transparent",
+          max_tokens: 20000,
+        },
+        bundle,
+      ),
+    );
+    expect(out).toContain("### WindowOptions.Transparent (field)");
+    expect(out).toContain("type WindowOptions struct {");
+    expect(out).toContain("Transparent bool");
+    // The rest of the struct is not sent: that is the point of the slice.
+    expect(out).not.toContain("StateKey");
+    expect(out.length).toBeLessThan(2000);
+  });
+
+  test("a field that does not exist falls back to the declaration miss", () => {
+    const out = body(
+      getDocs(
+        {
+          library: "mygo",
+          symbol: "WindowOptions.NoSuchField",
+          max_tokens: 20000,
+        },
+        bundle,
+      ),
+    );
+    expect(out).not.toContain("```go");
+    expect(out).toContain("No declaration named");
+  });
+});

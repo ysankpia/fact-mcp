@@ -86,7 +86,7 @@ Ask a question about a library. Returns the passages that answer it.
 | `library`    | Library name, module path, or `owner/repo`. |
 | `version`    | Pin a version. Default: latest.             |
 | `topic`      | Rank the sections that mention it first.    |
-| `max_tokens` | Response budget. Default 3000.              |
+| `max_tokens` | Response budget. Default 1500.              |
 
 Leave `query` out and pass only `library` to get a version list and package
 overview instead of documentation.
@@ -187,6 +187,11 @@ separate step you have to chain.
 
 **Markdown, not HTML.** pkg.go.dev returns Markdown directly, so the response
 is what an agent reads best.
+
+**Snippets, not pages.** A search result is the declaration line, the lines
+around the match and the paragraph that mentions it. A struct can be eight
+kilobytes while the answer is one field; `get` returns the whole declaration
+when you need it, and `get(Type.Field)` returns just the field.
 
 **Failures are explicit.** A miss, an ambiguous name and a rate limit each
 produce a different message with a next step. None of them is silently answered

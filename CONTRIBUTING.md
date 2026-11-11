@@ -102,9 +102,10 @@ report includes the name you typed, what came back, and what you expected.
 
 **Improving extraction.** pkg.go.dev emits Markdown with `##` groups and one
 fenced Go block per declaration. Section splitting lives in `src/sections.ts`,
-ranking in `src/rank.ts`, and response assembly in `src/render.ts`. All three
-are pure and driven by `test/fixtures/mygo.md`, so a change there is testable
-without a network call: add the case to the fixture and to a `*.test.ts` file.
+ranking in `src/rank.ts`, slicing in `src/snippet.ts`, and response assembly in
+`src/render.ts`. All four are pure and driven by `test/fixtures/mygo.md`, so a
+change there is testable without a network call: add the case to the fixture
+and to a `*.test.ts` file.
 
 ## What to avoid
 

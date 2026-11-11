@@ -14,6 +14,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import type { GoBundle, GoModule, Unsupported } from "./orchestrator.ts";
 import type { Section } from "./sections.ts";
+import { snippetBody } from "./snippet.ts";
 
 /**
  * A bundle that resolved to a module.
@@ -226,9 +227,9 @@ export function noMatchBody(
   return `No section matched "${query}". Document map:\n\n${map}\n\nNarrow with topic, or call get(library="${library}", symbol="Name").`;
 }
 
-/** A section as it appears in a search response. */
-function piece(section: Section): string {
-  return `${"#".repeat(Math.min(section.level, 4))} ${section.heading}\n\n${section.body}`;
+/** A section as it appears in a search response, sliced to what answers. */
+function piece(section: Section, terms: string[]): string {
+  return `${"#".repeat(Math.min(section.level, 4))} ${section.heading}\n\n${snippetBody(section, terms)}`;
 }
 
 /**
@@ -245,10 +246,11 @@ export function sectionChunks(
   ranked: Section[],
   maxChars: number,
   used: number,
+  terms: string[] = [],
 ): { chunks: string[]; used: number } {
   const chunks: string[] = [];
   for (const section of ranked) {
-    const rendered = piece(section);
+    const rendered = piece(section, terms);
     const separator = chunks.length > 0 ? SECTION_SEPARATOR.length : 0;
     if (used + separator + rendered.length > maxChars) {
       const room = maxChars - used - separator;
@@ -292,19 +294,25 @@ export function sectionsResponse(
   ranked: Section[],
   maxChars: number,
   nextStep: string,
+  terms: string[] = [],
 ): string {
-  const full = `${headerText}${ranked.map(piece).join(SECTION_SEPARATOR)}`;
+  const full = `${headerText}${ranked.map((section) => piece(section, terms)).join(SECTION_SEPARATOR)}`;
   if (full.length <= maxChars) return full;
 
   // `remaining` can never exceed the number of ranked sections, so a note
   // written for all of them is the widest this response will print.
   const widest = moreSectionsNote(ranked.length, nextStep).length;
   if (maxChars - headerText.length - widest < 0) {
-    const { chunks } = sectionChunks(ranked, maxChars, headerText.length);
+    const { chunks } = sectionChunks(ranked, maxChars, headerText.length, terms);
     return `${headerText}${chunks.join(SECTION_SEPARATOR)}`;
   }
 
-  const { chunks } = sectionChunks(ranked, maxChars - widest, headerText.length);
+  const { chunks } = sectionChunks(
+    ranked,
+    maxChars - widest,
+    headerText.length,
+    terms,
+  );
   const remaining = ranked.length - chunks.length;
   return `${headerText}${chunks.join(SECTION_SEPARATOR)}${moreSectionsNote(remaining, nextStep)}`;
 }
