@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-11
+
 ### Added
 
 - A twelve-question product benchmark, `bun run bench`. It reports how many
