@@ -6,9 +6,13 @@ completed work, not started work. Go is finished before Python begins; Python
 is finished before a third ecosystem begins.
 
 The standard is measured, not felt: a fixed set of real developer questions,
-run against real documentation, with the answering declaration's position and
-the response size as the numbers. A release that does not move one of those
-numbers does not need to exist.
+run against real documentation, with **whether the answer fits inside a token
+budget** and **how large that response is** as the numbers. A release that does
+not move one of those numbers does not need to exist.
+
+Position within the response is a diagnostic, not a gate. The reader is an agent
+that reads the whole answer, so an answer at rank 5 costs the same as one at
+rank 1; what changes the outcome is whether it is inside the budget at all.
 
 ## Where we are — 0.1.1
 
@@ -26,23 +30,29 @@ create a window", …) against the packages that answer them:
 
 | Metric | Today | Gate for the 0.1 line |
 | --- | --- | --- |
-| Answer among the first 3 sections | 7 / 12 | ≥ 9 / 12 |
-| Answer present at the default budget | 12 / 12 | 12 / 12 |
+| Answer present at a 1,500-token budget | 10 / 12 | ≥ 11 / 12 |
+| Answer present at the default budget (3,000) | 12 / 12 | 12 / 12 |
 | Median response at the default budget | ~2,980 tokens | ≤ 1,500 tokens |
 | Non-Go library refused explicitly | 0 / 4 | 4 / 4 |
+| Answer among the first 3 sections | 7 / 12 | diagnostic only |
 
 **Gaps behind those numbers**
 
-- Responses are whole declarations. A `WindowOptions` struct is 8 KB, so the
-  median response fills the default budget and the answer competes with noise.
+- Responses are whole declarations, and that is what fills the budget.
+  `WindowOptions` is 8,619 characters; the `Transparent` field that answers
+  "make a window transparent" is 72 of them, **0.84% of what we send**. Slice a
+  section to its signature and the match context and the same budget holds many
+  more sections.
+- That is also why two benchmark answers sit at rank 8 and 22 and miss a
+  1,500-token budget: not because the ranking is bad, but because five whole
+  declarations exhaust the budget before those sections are reached. Smaller
+  sections cover them without a ranking change.
 - Fields cannot be fetched: `get(symbol="WindowOptions.Transparent")` and
   `get(symbol="Server.ReadTimeout")` miss, because a field lives inside its
   struct's body rather than as a declaration of its own.
 - A name from another ecosystem resolves to an unrelated Go package: `react`
   becomes `github.com/rocketlaunchr/react`, `mongodb` becomes Go driver
   candidates. A plausible wrong answer is worse than a refusal.
-- Ranking is still literal. `how do I define a flag` puts `Flags` at roughly
-  1,880 tokens because "define" appears in no API name.
 
 ## 0.1.x — Go, finished
 
@@ -56,16 +66,16 @@ of resolving to a Go package. No ranking change in this release: it exists to
 make the standard enforceable.
 
 **0.1.3 — answers, not pages.** Field-level lookup (`Type.Field`) and snippet
-responses: the signature plus the prose around the match, not the whole
-declaration. Target: median at or below 1,500 tokens with the answer still
-present in all twelve.
+responses: a declaration's signature plus the prose or field lines around the
+match, not the whole declaration. Smaller sections also mean more of them fit,
+which is what covers the two benchmark answers that currently sit at rank 8 and
+22. Target: the gate above — answer present at 1,500 tokens for at least 11 of
+12, median at or below 1,500.
 
-**0.1.4 — ranking precision.** Close the top-3 gap the benchmark exposes.
-Extend the verb table only where a benchmark question proves it helps; no
-speculative synonyms.
-
-**0.1.5 … 0.1.x — whatever the benchmark still shows.** Every patch states the
-metric it moves. 0.2 does not start until the 0.1 line passes.
+**0.1.4 … 0.1.x — whatever the gate still shows.** Every patch states the metric
+it moves. If slicing alone does not reach the gate, the remaining gap is ranking;
+only then extend the verb table, and only where a benchmark question proves it
+helps. 0.2 does not start until the 0.1 line passes.
 
 ## 0.2 — Python, finished
 
@@ -77,7 +87,7 @@ not when it starts.
 - Documentation read from Python's own package index API at request time: no
   index, nothing on disk, no keys.
 - The benchmark rewritten with Python libraries and the same thresholds —
-  answer in the top 3 for at least 9 of 12, present for 12 of 12, median at or
+  answer present at a 1,500-token budget for at least 11 of 12, median at or
   below 1,500 tokens.
 - Non-Python names refused explicitly, as in 0.1.x.
 
