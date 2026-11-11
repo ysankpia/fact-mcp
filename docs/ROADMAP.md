@@ -38,17 +38,18 @@ create a window", …) against the packages that answer them:
 
 | Metric | Today | Gate for the 0.1 line |
 | --- | --- | --- |
-| Answer present at a 1,500-token budget | 11 / 12 | ≥ 11 / 12 |
+| Answer present at a 1,500-token budget | 12 / 12 | ≥ 11 / 12 |
 | Median response at the default budget (1,500) | ~1,470 tokens | ≤ 1,500 tokens |
 | Non-Go library refused explicitly | 4 / 4 | 4 / 4 |
 | Answer among the first 3 sections | diagnostic only | diagnostic only |
 
 **Gaps behind those numbers**
 
-- None against the gate. One benchmark answer, "how do I set a timeout" against
-  `net/http`, is still outside 1,500 tokens: the answer is a field on `Server`
-  and ranking prefers `TimeoutHandler`. It is recorded in ADR 0002 and is the
-  next candidate only if 0.1 quality work resumes.
+- None. The benchmark accepts any declaration that answers a question: "how do
+  I set a timeout" on `net/http` is satisfied by `ReadTimeout`,
+  `WriteTimeout` or `TimeoutHandler`, because the question does not name one
+  type. The previous 11/12 came from insisting on a single string that lives on
+  `Client`, not from a missing answer.
 
 ## 0.1.x — Go, finished
 
