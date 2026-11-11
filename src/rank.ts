@@ -24,6 +24,75 @@ const BODY_HIT = 2;
 const BODY_HIT_CAP = 8;
 
 /**
+ * What a verb in a question means in an API name.
+ *
+ * A developer asks "how do I create a window"; the declaration is called
+ * `NewWindow`, and "create" appears nowhere in it. Without this map the query
+ * scores the one section that is *about* windows (`WindowOptions`, a long struct
+ * that repeats the word) above the one that *does* it.
+ *
+ * Only verbs whose API name is not the verb itself belong here. "Add", "set",
+ * "get" and "delete" are usually the literal method name, so expanding them
+ * would only add noise — `AddParam` would start competing with `AddCommand`.
+ *
+ * This is a fixed, reviewable table, not a model: it cannot invent a synonym,
+ * and a wrong entry shows up as a ranking regression in the tests.
+ */
+const VERB_INTENT: Record<string, string[]> = {
+  create: ["new"],
+  make: ["new"],
+  build: ["new"],
+  open: ["new", "open"],
+  start: ["run", "listen", "serve"],
+  serve: ["listen", "serve"],
+  read: ["read", "load", "decode", "parse"],
+  write: ["write", "put", "encode"],
+  upload: ["create", "put", "copy"],
+  download: ["open", "copy"],
+  print: ["print", "format", "indent", "marshal"],
+  format: ["format", "indent"],
+  route: ["get", "post", "handle", "group"],
+  define: ["type", "struct", "var", "const"],
+};
+
+/** Question words that carry no API meaning and must not score anything. */
+const QUESTION_WORDS = new Set([
+  "how",
+  "what",
+  "why",
+  "when",
+  "where",
+  "which",
+  "do",
+  "does",
+  "did",
+  "can",
+  "could",
+  "should",
+  "would",
+  "the",
+  "a",
+  "an",
+  "in",
+  "to",
+  "of",
+  "for",
+  "and",
+  "or",
+  "my",
+  "it",
+  "is",
+  "are",
+  "be",
+  "with",
+  "on",
+  "from",
+  "that",
+  "this",
+  "i",
+]);
+
+/**
  * How much a declaration's kind is preferred when two sections match equally.
  *
  * A type is the answer more often than a func, and both are named units that
@@ -98,6 +167,20 @@ export function tokens(s: string): string[] {
   // A term repeated in the query is one term: scoring it twice would count the
   // same body hits twice. "创建创建" and "window window" both collapse.
   return [...new Set([...words, ...unspaced])];
+}
+
+/**
+ * The terms to score a section against for a question.
+ *
+ * The query's own terms, minus question words that match nothing useful
+ * ("how", "do", "I"), plus the API stems its verbs imply. Kept separate from
+ * `tokens()` so the literal words stay available for the no-match message and
+ * the topic filter.
+ */
+export function queryTerms(s: string): string[] {
+  const base = tokens(s).filter((term) => !QUESTION_WORDS.has(term));
+  const implied = base.flatMap((term) => VERB_INTENT[term] ?? []);
+  return [...new Set([...base, ...implied])];
 }
 
 /** How well one section answers a query, given its already-tokenised terms. */

@@ -216,6 +216,30 @@ describe("get: one declaration", () => {
     }
   });
 
+  test("a bare name prefers the package-level declaration over methods of it", () => {
+    // Go's own rule: an unqualified name is the package-level declaration; a
+    // method always names its receiver. `Window` is a type here and also the
+    // name of methods on Page, Document and WebView — the type is the answer,
+    // and demanding a choice of the caller would be wrong.
+    const out = body(
+      getDocs({ library: "mygo", symbol: "Window", max_tokens: 20000 }, bundle),
+    );
+    expect(out).toContain("type Window struct");
+    expect(out).not.toContain("ambiguous");
+  });
+
+  test("an ambiguous suggestion names a declaration the caller could not already have named", () => {
+    // A package-level declaration's symbol is the bare name, so suggesting it
+    // repeats the ambiguous call that produced this answer. Every suggestion
+    // must be receiver-qualified or absent.
+    const out = body(
+      getDocs({ library: "mygo", symbol: "Close", max_tokens: 20000 }, bundle),
+    );
+    const suggested = out.match(/symbol="([^"]+)"/)?.[1] ?? "";
+    expect(out).toContain("ambiguous");
+    if (suggested) expect(suggested).toMatch(/\./);
+  });
+
   test("a bare name matching one declaration is returned unchanged", () => {
     // Title is declared once, on Window: no qualification needed.
     const out = body(

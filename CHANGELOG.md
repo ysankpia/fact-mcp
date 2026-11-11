@@ -17,15 +17,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `search(topic=...)` now filters the answer instead of reweighting it. The
-  topic used to be folded into the query's term list, so it reordered sections
-  without removing any: on `github.com/egoist/mygo`, `query="window"` with
-  `topic="TitleBarStyle"` still led with `WindowOptions` and returned every
-  section the bare query did, 80,298 characters against 79,972. The sections
-  returned with a topic are now a strict subset of those returned without it,
-  and a topic with no query selects the sections about it instead of being
-  silently ignored. The tool schema, the README and the truncation footer say
-  the same thing.
+- A question is ranked by what it asks for, not only by the words it uses.
+  `search(query="how do I create a window")` used to lead with the
+  `WindowOptions` struct — the longest section that repeats "window" — because
+  no API name contains "create". A fixed, reviewable verb-to-API table now
+  contributes the stem (`create` → `new`, `start` → `listen`, `print` →
+  `format`) and question words are dropped. Measured on twelve real questions
+  against real godoc: the answering declaration moved into the top three for 7
+  of 12, against 1 of 12 before, and into the top five for 10 of 12. The
+  default budget drops from 6000 to 3000 tokens as a result: every one of those
+  twelve answers now fits, where 6000 covered 8.
+- `get(symbol="Name")` prefers the package-level declaration, as Go itself
+  does. A bare name that matched a type and methods of the same name (or a func
+  and a method) used to demand a choice; the unqualified name means the
+  package-level one, and only several package-level declarations of the same
+  name are ambiguous. `get(symbol="ListenAndServe")` returns the function again
+  instead of a menu.
+- An ambiguous `get` no longer suggests the call it just rejected. When the
+  first candidate was a package-level declaration, the suggested symbol was the
+  bare name — the same ambiguous call, a loop. The suggestion is now always
+  receiver-qualified.
+- `search(topic=...)` is a ranking hint, not a filter. Filtering on the literal
+  word dropped the answer whenever the prose did not use it: `topic="sizing"`
+  kept one section, `topic="authentication"` three of eighty-eight, and
+  `topic="create a window"` filtered nothing at all. The sections that mention
+  the topic now rank first and none are removed. The schema, the README and the
+  footer describe the hint, and a topic with no query still becomes the query.
 - `get(symbol="Type.Method")` selects the declaration the caller named instead
   of the first one sharing the method name. A qualified symbol used to have its
   receiver thrown away, so on `github.com/egoist/mygo` — where

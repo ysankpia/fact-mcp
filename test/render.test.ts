@@ -421,17 +421,10 @@ describe("noMatch", () => {
     );
   });
 
-  test("names the topic that removed every section, and offers a different one", () => {
-    const out = noMatch("header\n", "window", "- Types", "mygo", "TitleBarStyle");
+  test("never names the topic: it is a ranking hint, so it cannot be the cause", () => {
+    const out = noMatch("header\n", "window", "- Types", "mygo");
     expect(out).toBe(
-      'header\nNo section matched "window" with topic "TitleBarStyle". Document map:\n\n- Types\n\nTry another topic, or call get(library="mygo", symbol="Name").',
-    );
-  });
-
-  test("names a topic that found nothing on its own", () => {
-    const out = noMatch("header\n", "", "- Types", "mygo", "zzzqqq");
-    expect(out).toBe(
-      'header\nNo section matched "zzzqqq". Document map:\n\n- Types\n\nTry another topic, or call get(library="mygo", symbol="Name").',
+      'header\nNo section matched "window". Document map:\n\n- Types\n\nNarrow with topic, or call get(library="mygo", symbol="Name").',
     );
   });
 });

@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { rank, score, tokens } from "../src/rank.ts";
+import { rank, queryTerms, score, tokens } from "../src/rank.ts";
 import { sections } from "../src/sections.ts";
 
 const fixture = await Bun.file(
@@ -324,5 +324,30 @@ describe("rank: a query in a script without word breaks", () => {
   test("a query in these scripts that matches nothing returns no sections", () => {
     // None of these characters appear in the fixture.
     expect(rank(zhSections, tokens("数据库连接"))).toHaveLength(0);
+  });
+});
+
+describe("queryTerms: what a question means in an API name", () => {
+  test("a verb contributes the API stem that implements it", () => {
+    const terms = queryTerms("how do I create a window");
+    expect(terms).toContain("window");
+    expect(terms).toContain("new");
+    // Question words match nothing and would only dilute the score.
+    expect(terms).not.toContain("how");
+    expect(terms).not.toContain("do");
+  });
+
+  test("literal API verbs are not expanded", () => {
+    // "add" is usually the method name itself; expanding it would make
+    // AddParam compete with AddCommand.
+    expect(queryTerms("add a subcommand")).toEqual(["add", "subcommand"]);
+  });
+
+  test("a question about creating a window ranks NewWindow above the struct", () => {
+    // The defect this fixes: "create" appears in no API name, so scoring on
+    // literal words alone put the long WindowOptions struct first.
+    const ranked = rank(fixtureSections, queryTerms("how do I create a window"));
+    expect(ranked[0].section.name).toBe("NewWindow");
+    expect(ranked[0].section.kind).toBe("func");
   });
 });
