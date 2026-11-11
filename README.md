@@ -197,6 +197,12 @@ bun run inspect              # MCP Inspector
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
+## Roadmap
+
+Where this is going, and what it deliberately will not do, is in
+[docs/ROADMAP.md](docs/ROADMAP.md). One rule governs it: an ecosystem ships only
+when it passes the same measured gate as the one before it.
+
 ## License
 
 MIT
