@@ -61,19 +61,26 @@ the gate above. Further 0.1 patches are for regressions, not new scope.
 Same gate, same thresholds, different ecosystem. Python ships when it passes,
 not when it starts.
 
-**The source is the open question, and it comes before the adapter.** Python has
-no pkg.go.dev equivalent. Measured on 2026-11-11: PyPI's `description` is a
-README, not API reference — 1,640 characters of Markdown for Flask, 2,017 of
-reST for Django. ReadTheDocs serves HTML and its API answered 401 to an
-anonymous request; `docs.python.org` is HTML too. 0.2 therefore starts with a
-source comparison, and Python ships only if one source passes the gate. The
-adapter is not the first step.
+**The source comparison is done, and no single fetch passes.** Nine questions
+across requests, flask, django and pydantic: PyPI's description answered 4/9,
+the repository README 3/9, the documentation landing page 1/9. READMEs carry
+quickstart snippets; API detail lives on deep documentation pages. Pydantic's
+PyPI description alone is 34,756 tokens, larger than an entire Go answer, and
+Django's repository README is a three-token stub.
+[The measurements](research/python-docs-sources.md) are recorded in full.
 
-- An adapter behind the existing `buildBundle({ name, version, page, want })`
-  shape, with resolution routed by ecosystem — once a source is chosen.
-- The benchmark rewritten with Python libraries and the same thresholds —
-  answer present at a 1,500-token budget for at least 11 of 12, median at or
-  below 1,500 tokens.
+Python is therefore not an adapter problem. It needs a search-then-fetch path
+over HTML documentation: query the site's search, fetch the top page, strip
+HTML, rank sections. 0.2 remains unstarted until a throwaway prototype of that
+path passes the gate on the same nine questions. If it cannot, Python is
+dropped and the next ecosystem is chosen for a Markdown documentation API like
+the one Go has.
+
+- A prototype of the search-then-fetch path, measured against the same gate —
+  the next step, not an adapter.
+- If it passes: an adapter behind the existing
+  `buildBundle({ name, version, page, want })` shape, routed by ecosystem,
+  with the benchmark rewritten for Python at the same thresholds.
 - Non-Python names refused explicitly, as in 0.1.x.
 
 ## 0.3 and later — more ecosystems
